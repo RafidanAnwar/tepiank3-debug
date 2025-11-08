@@ -3,6 +3,8 @@ import Login from './components/Login';
 import Register from './components/Register';
 import Home from './components/Home';
 import Pengujian from './components/Pengujian';
+import ParameterPengujian from './components/ParameterPengujian';
+import Profile from './components/Profile';
 
 
 // Protected Route Component
@@ -23,6 +25,7 @@ function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/home" element={<Home />} />
       <Route path="/pengujian" element={<Pengujian />} />
+      <Route path="/Profile" element={<Profile/>}/>
       {/* <Route
         path="/pengujian"
         element={
@@ -31,6 +34,10 @@ function App() {
           </ProtectedRoute>
         }
       /> */}
+      <Route path="/parameter-pengujian" element={<ParameterPengujian />
+
+      }
+      />
       <Route path="/" element={<Navigate to="/login" replace />} />
     </Routes>
   );

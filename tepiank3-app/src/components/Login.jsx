@@ -1,18 +1,55 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+const tbUserData =  localStorage.getItem('tb_User')
+const tbUser =  JSON.parse(tbUserData)
 
 function Login() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ email: '', password: '' });
 
-  const handleSubmit = (e) => {
+  const handleSubmit_Old = (e) => {
     e.preventDefault();
     console.log('Login:', formData);
     //authentication logic disini aja
     navigate('/home');
   };
+
+
+
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    console.log('Login attempt:', formData);
+    // Cari user berdasarkan email
+    const user = tbUser.find(u => u.email === formData.email);
+
+    // Validasi email
+    if (!user) {
+      alert('Email tidak ditemukan! Silakan daftar terlebih dahulu.');
+      return;
+    }
+
+    // Validasi password
+    if (user.password !== formData.password) {
+      alert('Password salah! Coba lagi.');
+      return;
+    }
+
+    // Jika lolos semua
+    alert(`Selamat datang, ${user.firstname}!`);
+    console.log('User login:', user);
+
+    // Simulasi login (misalnya simpan ke localStorage)
+    localStorage.setItem('loggedUser', JSON.stringify(user));
+
+    navigate('/home');
+  };
+
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyan-400 via-blue-500 to-blue-700 flex items-center justify-center p-4">
@@ -35,7 +72,7 @@ function Login() {
 
         {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-            <img className='max-w-60 m-auto' src="./Tepian-K3-Logo-1.svg" alt="" />
+          <img className='max-w-60 m-auto' src="./Tepian-K3-Logo-1.svg" alt="" />
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-2 mt-10">Selamat Datang!</h2>
             <p className="text-gray-600 text-sm">Silakan masuk ke akun Anda</p>
@@ -51,7 +88,7 @@ function Login() {
                   type="email"
                   required
                   value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="nama@email.com"
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
@@ -67,7 +104,7 @@ function Login() {
                   type={showPassword ? "text" : "password"}
                   required
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="••••••••"
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
@@ -102,7 +139,7 @@ function Login() {
           {/* Register Link */}
           <p className="text-center text-sm text-gray-600 mt-6">
             Belum punya akun?{' '}
-            <button onClick={() => navigate('/register')} className="text-blue-600 hover:text-blue-700 font-semibold">
+            <button onClick={() => navigate('/register')} className="text-blue-600 hover:text-blue-700 font-semibold cursor-pointer">
               Daftar sekarang
             </button>
           </p>

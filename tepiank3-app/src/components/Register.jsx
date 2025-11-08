@@ -1,21 +1,76 @@
+//saya memiliki project (react+vite, tailwind+vite)
+//bantu saya membuat fungsi handlesubmit dari file Register.jsx:
+//fungsi simpan data register ke file /src/dataDummy/tb_User.js
+//isi tb_User.js : const tbUser = []
+
+
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
+import tb_User from '../dataDummy/tb_User';
 
 function Register() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ id:0, firstname: '', fullname: '', email: '', password: '',role:"User", createdAt:"" });
 
+  // const handleSubmitOld = (e) => {
+  //   e.preventDefault();
+  //   console.log('Register:', formData);
+  //   navigate('/login');
+  // };
+
+
+  
+  //---------------------------------
+  
+  
+  
   const handleSubmit = (e) => {
     e.preventDefault();
     console.log('Register:', formData);
-    // TODO: Add your registration logic here
+
+    // Ambil user dari localStorage atau dari tb_User default
+    const tbUserData = JSON.parse(localStorage.getItem('tb_User')) || tb_User;
+
+    // Cek apakah email sudah digunakan
+    const existingUser = tbUserData.find(user => user.email === formData.email);
+    if (existingUser) {
+      alert('Email sudah terdaftar. Silakan gunakan email lain.');
+      return;
+    }
+
+    // Buat user baru
+    const newUser = {
+      id: tbUserData.length + 1,
+      firstname: formData.firstname,
+      fullname: formData.fullname,
+      email: formData.email,
+      password: formData.password,
+      role: formData.role,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Simpan ke localStorage
+    const updatedUsers = [...tbUserData, newUser];
+    localStorage.setItem('tb_User', JSON.stringify(updatedUsers));
+
+    alert('Registrasi berhasil! Silakan login.');
     navigate('/login');
   };
 
+
+
+//--------------------------------
+
+
+
+
+
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-400 via-blue-500 to-blue-700 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-cyan-400 via-blue-500 to-blue-700 flex items-center justify-center p-4">
       <div className="absolute inset-0 opacity-20">
         <div className="absolute top-20 right-40 w-96 h-96 bg-white rounded-full blur-3xl"></div>
         <div className="absolute bottom-20 left-40 w-96 h-96 bg-blue-300 rounded-full blur-3xl"></div>
@@ -44,14 +99,28 @@ function Register() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name Input */}
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nama Panggilan</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  required
+                  value={formData.firstname}
+                  onChange={(e) => setFormData({...formData, firstname: e.target.value})}
+                  placeholder="John"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
                   required
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  value={formData.fullname}
+                  onChange={(e) => setFormData({...formData, fullname: e.target.value})}
                   placeholder="John Doe"
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
@@ -109,7 +178,7 @@ function Register() {
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+              className="w-full bg-linear-to-r from-blue-600 to-cyan-500 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-cyan-600 transition-all duration-300 shadow-lg hover:shadow-xl"
             >
               Daftar
             </button>
@@ -118,7 +187,7 @@ function Register() {
           {/* Login Link */}
           <p className="text-center text-sm text-gray-600 mt-6">
             Sudah punya akun?{' '}
-            <button onClick={() => navigate('/login')} className="text-blue-600 hover:text-blue-700 font-semibold">
+            <button onClick={() => navigate('/login')} className="text-blue-600 hover:text-blue-700 font-semibold cursor-pointer">
               Masuk
             </button>
           </p>
