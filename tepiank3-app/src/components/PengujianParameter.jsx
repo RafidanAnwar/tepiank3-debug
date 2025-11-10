@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Bell, ChevronDown, UserCircle, LogOut, MapPin, Plus, Minus, Save, ShoppingCart } from 'lucide-react';
 import CostPanel from './CostPanel';
 
-export default function ParameterPengujian() {
+export default function PengujianParameter() {
     const navigate = useNavigate();
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [activeStep, setActiveStep] = useState(2);
@@ -44,30 +44,40 @@ export default function ParameterPengujian() {
         {
             id: 'LINGKUNGAN KERJA',
             name: 'LINGKUNGAN KERJA',
+            select: './icon-claster-lingkunagn-kerja-select.svg',
+            unselect: './icon-claster-lingkunagn-kerja-unselect.svg',
             icon: '👷',
             color: 'from-blue-400 to-blue-600'
         },
         {
             id: 'KESELAMATAN KERJA',
             name: 'KESELAMATAN KERJA',
+            select: './icon-claster-keselamatan-kerja-select.svg',
+            unselect: './icon-claster-keselamatan-kerja-unselect.svg',
             icon: '🦺',
             color: 'from-cyan-400 to-cyan-600'
         },
         {
             id: 'KESEHATAN KERJA',
             name: 'KESEHATAN KERJA',
+            select: './icon-claster-kesehatan-kerja-select.svg',
+            unselect: './icon-claster-kesehatan-kerja-unselect.svg',
             icon: '👂',
             color: 'from-blue-500 to-blue-700'
         },
         {
             id: 'BIOMARKER',
             name: 'BIOMARKER',
+            select: './icon-claster-biomaker-select.svg',
+            unselect: './icon-claster-biomaker-unselect.svg',
             icon: '🧪',
             color: 'from-cyan-500 to-cyan-700'
         },
         {
             id: 'LINGKUNGAN HIDUP',
             name: 'LINGKUNGAN HIDUP',
+            select: './icon-claster-lingkungan-hidup-select.svg',
+            unselect: './icon-claster-lingkungan-hidup-unselect.svg',
             icon: '🌿',
             color: 'from-blue-400 to-blue-600'
         }
@@ -193,6 +203,7 @@ export default function ParameterPengujian() {
     const handleOrder = () => {
         console.log('Order placed:', quantities);
         alert('Pesanan berhasil dibuat!');
+        navigate('/status-pengujian');
     };
 
     const steps = [
@@ -307,7 +318,7 @@ export default function ParameterPengujian() {
                 </div>
 
                 {/* Main Card */}
-                <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+                <div className="bg-white h-380 rounded-2xl shadow-lg p-8 mb-8">
                     <p className="text-center text-gray-600 mb-8">Silahkan masukan data lokasi pengujian dan pilih parameter yang akan diuji</p>
 
 
@@ -400,8 +411,10 @@ export default function ParameterPengujian() {
                                                 : 'bg-white border-gray-200 hover:border-blue-300'
                                                 }`}
                                         >
-                                            <div className="flex justify-center w-30 h-35 flex-col cursor-pointer">
-                                                <span className="text-2xl">{category.icon}</span>
+                                            <div className="flex justify-center items-center w-30 h-35 flex-col cursor-pointer">
+                                                <img className={`w-20`} src={selectedCategory === category.id ? category.select : category.unselect} alt="" />
+
+                                                {/* <span className="text-2xl">{category.icon}</span> */}
                                                 <span className={`font-bold text-sm ${selectedCategory === category.id ? 'text-white' : 'text-gray-700'}`}>
                                                     {category.name}
                                                 </span>
