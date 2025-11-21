@@ -1,7 +1,9 @@
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, Bell, ChevronDown, UserCircle, LogOut } from 'lucide-react';
+import { Search, Bell, ChevronDown, UserCircle, LogOut, LayoutDashboard } from 'lucide-react';
 import { ContextApi } from '../Context/ContextApi';
+import { authService } from '../services/authService';
+import { userService } from '../services/userService';
 
 
 
@@ -10,31 +12,48 @@ export const NavBar = () => {
     const location = useLocation();
     const isActive = (path) => location.pathname === path;
     const [showUserMenu, setShowUserMenu] = useState(false);
-    const { user } = useContext(ContextApi);
-    // const [user, setUser] = useState(null);
+    const [userProfile, setUserProfile] = useState(null);
+    const { user, logout } = useContext(ContextApi);
+    const menuRef = useRef(null);
 
 
-    // useEffect(() => {
-    //     const raw = localStorage.getItem('loggedUser');
-    //     if (!raw) {
-    //         // kalau belum login, arahkan ke /login
-    //         navigate('/login');
-    //         return;
-    //     }
-    //     try {
-    //         const parsed = JSON.parse(raw);
-    //         setUser(parsed);
-    //     } catch (err) {
-    //         console.error('Gagal parse loggedUser', err);
-    //         navigate('/login');
-    //     }
-    // }, [navigate]);
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const profile = await userService.getProfile();
+                setUserProfile(profile);
+            } catch (error) {
+                console.error('Error fetching profile:', error);
+            }
+        };
+        
+        if (user) {
+            fetchProfile();
+        }
+    }, [user]);
 
 
     const handleLogout = () => {
-        console.log('Logging out...');
-        navigate('/login', { replace: true });
+        try {
+            console.log('Logging out...');
+            logout();
+            navigate('/login', { replace: true });
+        } catch (error) {
+            console.error('Error during logout:', error);
+            navigate('/login', { replace: true });
+        }
     };
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setShowUserMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
 
 
@@ -81,15 +100,29 @@ export const NavBar = () => {
                         </button>
 
                         <div
+                            ref={menuRef}
                             className="relative"
                             onMouseEnter={() => setShowUserMenu(true)}
                             onMouseLeave={() => setShowUserMenu(false)}
                         >
                             <div className="flex items-center space-x-2 cursor-pointer">
-                                <div className="w-10 h-10 bg-blue-500 rounded-full"></div>
+                                {userProfile?.avatar && userProfile.avatar.startsWith('/uploads') ? (
+                                    <img 
+                                        src={`http://localhost:3001${userProfile.avatar}`} 
+                                        alt="Profile" 
+                                        className="w-10 h-10 rounded-full object-cover"
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.nextSibling.style.display = 'flex';
+                                        }}
+                                    />
+                                ) : null}
+                                <div className={`w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold ${userProfile?.avatar && userProfile.avatar.startsWith('/uploads') ? 'hidden' : 'flex'}`}>
+                                    {(userProfile?.firstname || user?.firstname || 'G').charAt(0).toUpperCase()}
+                                </div>
                                 <div className="hidden md:block">
-                                    <p className="text-sm font-semibold text-gray-800">{user.firstname || "Undefind"}</p>
-                                    <p className="text-xs text-gray-500">{user.role || "Undefind"}</p>
+                                    <p className="text-sm font-semibold text-gray-800">{userProfile?.firstname || user?.firstname || "Guest"}</p>
+                                    <p className="text-xs text-gray-500">{user?.role || "User"}</p>
                                 </div>
                                 <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
                             </div>
@@ -107,7 +140,7 @@ export const NavBar = () => {
                                         onClick={() => navigate('/HomeAdm')}
                                         className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                                     >
-                                        <UserCircle className="w-4 h-4" />
+                                        <LayoutDashboard className="w-4 h-4" />
                                         <span>Dashboard</span>
                                     </button>
                                     <hr className="my-1 border-gray-200" />

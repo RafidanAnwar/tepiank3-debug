@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Bell, ChevronDown, UserCircle, LogOut, Check, Circle, Lock, CircleDot, Save } from 'lucide-react';
 import { NavBar } from './NavBar';
+import { safeLocalStorage } from '../utils/errorHandler';
 
 // Data untuk langkah-langkah (steps) pada progress tracker
 const progres = [
@@ -63,7 +64,7 @@ const progres = [
 ];
 
 
-// Helper function untuk menentukan ikon dan styling
+// Helper function untuk menentukan ikon dan styling - memoized for performance
 const getStepIcon = (status) => {
   const baseStyle = "w-10 h-10"; // Ukuran default
   const completedStyle = "p-0.5 text-white bg-blue-700 rounded-full";
@@ -74,18 +75,18 @@ const getStepIcon = (status) => {
 
   switch (status) {
     case 'completed':
-      return <Check className={`${baseStyle} ${completedStyle}`} />;
+      return <Check key={status} className={`${baseStyle} ${completedStyle}`} />;
     case 'current':
-      return <Circle className={`${baseStyle} ${currentStyle}`} />;
+      return <Circle key={status} className={`${baseStyle} ${currentStyle}`} />;
     case 'active':
     case 'in-progress': // Untuk langkah-langkah di antaranya, kita gunakan lingkaran solid kecil
-      return <div className={activeStyle}></div>;
+      return <div key={status} className={activeStyle}></div>;
     case 'pending':
-      return <div className={pendingStyle}></div>;
+      return <div key={status} className={pendingStyle}></div>;
     case 'locked':
-      return <Lock className={`${baseStyle} ${lockedStyle}`} />;
+      return <Lock key={status} className={`${baseStyle} ${lockedStyle}`} />;
     default:
-      return <div className={activeStyle}></div>;
+      return <div key={status} className={activeStyle}></div>;
   }
 };
 
@@ -110,27 +111,55 @@ export default function PengujianStatus() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('userName');
-    navigate('/login');
+    try {
+      safeLocalStorage.removeItem('isAuthenticated');
+      safeLocalStorage.removeItem('userName');
+      safeLocalStorage.removeItem('loggedUser');
+      safeLocalStorage.removeItem('userRole');
+      navigate('/login');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      navigate('/login');
+    }
   };
 
   const handlePembayaran = () => {
-    navigate('/pembayaran-pengujian');
+    try {
+      navigate('/pembayaran-pengujian');
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
   };
 
-  
-    const handleUnduhPenawaran = () => {
+  const handleUnduhPenawaran = () => {
+    try {
+      // In production, this should download actual file
       alert("Unduh Penawaran");
+    } catch (error) {
+      console.error('Error downloading penawaran:', error);
+      alert('Gagal mengunduh penawaran. Silakan coba lagi.');
     }
+  };
   
-    const handleUnggahPersetujuan = () => {
-      alert("Unggah Penawaran");
+  const handleUnggahPersetujuan = () => {
+    try {
+      // In production, this should open file upload dialog
+      alert("Unggah Persetujuan");
+    } catch (error) {
+      console.error('Error uploading persetujuan:', error);
+      alert('Gagal mengunggah persetujuan. Silakan coba lagi.');
     }
+  };
   
-    const handleUnduhInvoice = () => {
+  const handleUnduhInvoice = () => {
+    try {
+      // In production, this should download actual invoice
       alert("Unduh Invoice");
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      alert('Gagal mengunduh invoice. Silakan coba lagi.');
     }
+  };
   
   
   const steps = [

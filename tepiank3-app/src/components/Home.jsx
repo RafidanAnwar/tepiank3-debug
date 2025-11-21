@@ -11,22 +11,12 @@ export default function HomePage() {
   // const [showUserMenu, setShowUserMenu] = useState(false);
   // const [user, setUser] = useState(null);
 
-  //handle update nama user
+  // Check authentication
   useEffect(() => {
-    const raw = localStorage.getItem('loggedUser');
-    if (!raw) {
-      // kalau belum login, arahkan ke /login
-      navigate('/login');
-      return;
-    }
-    try {
-      const parsed = JSON.parse(raw);
-      setUser(parsed);
-    } catch (err) {
-      console.error('Gagal parse loggedUser', err);
+    if (!user) {
       navigate('/login');
     }
-  }, [navigate]);
+  }, [user, navigate]);
 
 
   if (!user) return null;

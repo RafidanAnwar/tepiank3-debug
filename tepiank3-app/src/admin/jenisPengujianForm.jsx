@@ -1,6 +1,8 @@
 import React, {useState, useEffect} from "react";
 import {useNavigate, useParams, useLocation} from "react-router-dom";
 import {ArrowLeft, Microscope, Save} from "lucide-react";
+import { jenisPengujianService } from '../services/jenisPengujianService';
+import { clusterService } from '../services/clusterService';
 
 const jenisPengujianForm = () => {
     const navigate = useNavigate();
@@ -8,32 +10,120 @@ const jenisPengujianForm = () => {
     const location = useLocation();
     const existingData = location.state;
 
-    const [formData, setFormData] = useState({jenisCluster: ""});
+    const [formData, setFormData] = useState({name: "", description: "", clusterId: ""});
+    const [clusters, setClusters] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState({});
+    const [isDirty, setIsDirty] = useState(false);
 
-    // Jika ada data dari tombol edit, isi otomatis
     useEffect(() => {
-        if (existingData) {
-            setFormData(existingData);
+        loadClusters();
+        if (id && !existingData) {
+            loadJenisPengujianData();
+        } else if (existingData) {
+            setFormData({
+                name: existingData.name || '',
+                description: existingData.description || '',
+                clusterId: existingData.clusterId || ''
+            });
         }
-    }, [existingData]);
+    }, [id, existingData]);
 
-    // Handle input
-    const handleChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
+    const loadClusters = async () => {
+        try {
+            const data = await clusterService.getAllClusters();
+            setClusters(data);
+        } catch (error) {
+            console.error('Error loading clusters:', error);
+        }
     };
 
-    // Handle simpan
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (id) {
-            alert("Data berhasil diperbarui!");
-        } else {
-            alert("Data berhasil ditambahkan!");
+    const loadJenisPengujianData = async () => {
+        try {
+            setLoading(true);
+            const data = await jenisPengujianService.getJenisPengujianById(id);
+            setFormData({
+                name: data.name || '',
+                description: data.description || '',
+                clusterId: data.clusterId || ''
+            });
+        } catch (error) {
+            console.error('Error loading jenis pengujian:', error);
+            alert('Gagal memuat data');
+        } finally {
+            setLoading(false);
         }
-        navigate("/JenisPengujian");
+    };
+
+    // Handle input dengan validasi
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+        setIsDirty(true);
+        
+        // Clear error saat user mengetik
+        if (errors[name]) {
+            setErrors(prev => ({ ...prev, [name]: '' }));
+        }
+    };
+    
+    // Validasi form
+    const validateForm = () => {
+        const newErrors = {};
+        
+        if (!formData.name.trim()) {
+            newErrors.name = 'Nama jenis pengujian harus diisi';
+        } else if (formData.name.length > 100) {
+            newErrors.name = 'Nama maksimal 100 karakter';
+        }
+        
+        if (!formData.clusterId) {
+            newErrors.clusterId = 'Cluster harus dipilih';
+        }
+        
+        if (formData.description && formData.description.length > 500) {
+            newErrors.description = 'Deskripsi maksimal 500 karakter';
+        }
+        
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        
+        if (!validateForm()) {
+            return;
+        }
+        
+        try {
+            setLoading(true);
+            const trimmedData = {
+                name: formData.name.trim(),
+                description: formData.description.trim() || null,
+                clusterId: parseInt(formData.clusterId)
+            };
+            
+            if (id) {
+                await jenisPengujianService.updateJenisPengujian(id, trimmedData);
+                alert("Data berhasil diperbarui!");
+            } else {
+                await jenisPengujianService.createJenisPengujian(trimmedData);
+                alert("Data berhasil ditambahkan!");
+            }
+            navigate("/JenisPengujian");
+        } catch (error) {
+            console.error('Error saving data:', error);
+            const errorMsg = error.response?.data?.error || 'Gagal menyimpan data';
+            
+            if (error.response?.status === 400 && errorMsg.includes('already exists')) {
+                setErrors({ name: 'Nama jenis pengujian sudah ada' });
+            } else {
+                alert(errorMsg);
+            }
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -73,32 +163,92 @@ const jenisPengujianForm = () => {
                                 onSubmit={handleSubmit}
                                 className="bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 shadow-md rounded-xl p-6 space-y-6 w-100">
 
-                                {/* Input */}
+                                {/* Pilih Cluster */}
                                 <div>
                                     <label className="block text-sm font-medium text-white mb-2">
-                                        Jenis Pengujian
+                                        Cluster *
+                                    </label>
+                                    <select
+                                        name="clusterId"
+                                        value={formData.clusterId}
+                                        onChange={handleChange}
+                                        disabled={loading}
+                                        className={`backdrop-blur-sm shadow-sm bg-white/90 w-full border rounded-lg px-3 py-2 text-gray-800 focus:outline-none hover:scale-[1.03] disabled:opacity-50 ${
+                                            errors.clusterId ? 'border-red-500' : 'border-blue-500'
+                                        }`}
+                                    >
+                                        <option value="">Pilih Cluster</option>
+                                        {clusters.map(cluster => (
+                                            <option key={cluster.id} value={cluster.id}>
+                                                {cluster.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {errors.clusterId && (
+                                        <p className="text-red-200 text-sm mt-1">{errors.clusterId}</p>
+                                    )}
+                                </div>
+
+                                {/* Input Nama */}
+                                <div>
+                                    <label className="block text-sm font-medium text-white mb-2">
+                                        Nama Jenis Pengujian *
                                     </label>
                                     <input
                                         type="text"
-                                        name="jenisPengujian"
-                                        value={formData.jenisPengujian}
+                                        name="name"
+                                        value={formData.name}
                                         onChange={handleChange}
-                                        placeholder="Masukkan jenis Pengujian"
-                                        required="required"
-                                        className="backdrop-blur-sm shadow-sm bg-white/90 w-full border border-blue-500 rounded-lg px-3 py-2 text-gray-800 focus:outline-none hover:scale-[1.03]"/>
+                                        placeholder="Masukkan nama jenis pengujian"
+                                        maxLength={100}
+                                        disabled={loading}
+                                        className={`backdrop-blur-sm shadow-sm bg-white/90 w-full border rounded-lg px-3 py-2 text-gray-800 focus:outline-none hover:scale-[1.03] disabled:opacity-50 ${
+                                            errors.name ? 'border-red-500' : 'border-blue-500'
+                                        }`}
+                                    />
+                                    {errors.name && (
+                                        <p className="text-red-200 text-sm mt-1">{errors.name}</p>
+                                    )}
+                                    <p className="text-blue-100 text-xs mt-1">
+                                        {formData.name.length}/100 karakter
+                                    </p>
+                                </div>
+
+                                {/* Input Deskripsi */}
+                                <div>
+                                    <label className="block text-sm font-medium text-white mb-2">
+                                        Deskripsi (Opsional)
+                                    </label>
+                                    <textarea
+                                        name="description"
+                                        value={formData.description}
+                                        onChange={handleChange}
+                                        placeholder="Masukkan deskripsi"
+                                        rows={3}
+                                        maxLength={500}
+                                        disabled={loading}
+                                        className={`backdrop-blur-sm shadow-sm bg-white/90 w-full border rounded-lg px-3 py-2 text-gray-800 focus:outline-none hover:scale-[1.03] disabled:opacity-50 resize-none ${
+                                            errors.description ? 'border-red-500' : 'border-blue-500'
+                                        }`}
+                                    />
+                                    {errors.description && (
+                                        <p className="text-red-200 text-sm mt-1">{errors.description}</p>
+                                    )}
+                                    <p className="text-blue-100 text-xs mt-1">
+                                        {formData.description.length}/500 karakter
+                                    </p>
                                 </div>
 
                                 {/* Tombol Simpan */}
                                 <div className="flex justify-center">
                                     <button
                                         type="submit"
-                                        className="bg-white/70 text-blue-700 font-semibold px-6 py-2 rounded-lg flex items-center gap-2 shadow hover:text-blue-900 hover:scale-[1.03] transition-all">
+                                        disabled={loading}
+                                        className="bg-white/70 text-blue-700 font-semibold px-6 py-2 rounded-lg flex items-center gap-2 shadow hover:text-blue-900 hover:scale-[1.03] transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                                         <Save className="w-4 h-4"/>
-                                        <span>{
-                                                id
-                                                    ? "Update"
-                                                    : "Simpan"
-                                            }</span>
+                                        <span>
+                                            {loading ? 'Menyimpan...' : (id ? "Update" : "Simpan")}
+                                        </span>
                                     </button>
                                 </div>
                             </form>

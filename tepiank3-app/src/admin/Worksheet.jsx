@@ -1,523 +1,347 @@
-// File: ParameterTable.jsx
-import React, {useState} from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
-    Check,
-    MessageSquare,
-    Printer,
-    Save,
-    ChevronLeft,
-    ChevronRight,
-    ClipboardList
+  Edit2,
+  Save,
+  X,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  MessageSquare
 } from "lucide-react";
-import {useNavigate} from "react-router-dom";
+import { ContextApi } from '../Context/ContextApi';
+import Sidebar from "../pages/SideBar.jsx";
 import Navbar from "../pages/NavBar.jsx";
+import { worksheetService } from '../services/worksheetService';
 
-const ParameterTable = () => {
-    const navigate = useNavigate();
-    // ========================= DATA PERUSAHAAN & CLUSTER =========================
-    const companies = [
-        {
-            id: 1,
-            name: "PT. Antareja Mahada Makmur",
-            site: "Site MHU",
-            address: "Desa Jembayan, Kecamatan Loa Duri, Kota Samarinda, Prov. Kalimantan Timur",
-            contactPerson: "Muttaqin",
-            phone: "0812 8769 0967",
-            email: "muttaqin@amm.id",
-            clusters: [
-                {
-                    clusterName: "Lingkungan Kerja",
-                    tests: [
-                        {
-                            jenisPengujian: "Faktor Fisik",
-                            items: [
-                                {
-                                    param: "Kebisingan",
-                                    jumlah: 20,
-                                    acuan: "Permenaker 05/2018",
-                                    peralatan: "Sound Level Meter",
-                                    jumlahPeralatan: 1
-                                }, {
-                                    param: "Iklim Kerja",
-                                    jumlah: 5,
-                                    acuan: "Permenaker 05/2018",
-                                    peralatan: "Heat Stress Monitor",
-                                    jumlahPeralatan: 1
-                                }
-                            ]
-                        }, {
-                            jenisPengujian: "Faktor Kimia",
-                            items: [
-                                {
-                                    param: "Debu Total",
-                                    jumlah: 10,
-                                    acuan: "Permenaker 05/2018",
-                                    peralatan: "Personal Dust Sampler",
-                                    jumlahPeralatan: 1
-                                }, {
-                                    param: "Gas CO",
-                                    jumlah: 5,
-                                    acuan: "Permenaker 05/2018",
-                                    peralatan: "CO Gas Detector",
-                                    jumlahPeralatan: 1
-                                }
-                            ]
-                        }
-                    ]
-                }, {
-                    clusterName: "Lingkungan Hidup",
-                    tests: [
-                        {
-                            jenisPengujian: "Udara Ambien",
-                            items: [
-                                {
-                                    param: "SO₂",
-                                    jumlah: 3,
-                                    acuan: "PP 22/2021",
-                                    peralatan: "Impinger",
-                                    jumlahPeralatan: 1
-                                }, {
-                                    param: "NO₂",
-                                    jumlah: 3,
-                                    acuan: "PP 22/2021",
-                                    peralatan: "Impinger",
-                                    jumlahPeralatan: 1
-                                }
-                            ]
-                        }, {
-                            jenisPengujian: "Air Limbah",
-                            items: [
-                                {
-                                    param: "BOD",
-                                    jumlah: 2,
-                                    acuan: "PP 22/2021",
-                                    peralatan: "Botol Sampling",
-                                    jumlahPeralatan: 1
-                                }, {
-                                    param: "COD",
-                                    jumlah: 2,
-                                    acuan: "PP 22/2021",
-                                    peralatan: "Botol Sampling",
-                                    jumlahPeralatan: 1
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
-        }, {
-            id: 2,
-            name: "PT. Bara Sejahtera Mandiri",
-            site: "Site BSM",
-            address: "Jl. Poros Tenggarong KM.15, Kutai Kartanegara, Kalimantan Timur",
-            contactPerson: "Dewi Lestari",
-            phone: "0813 5567 9902",
-            email: "dewi@bsm.id",
-            clusters: [
-                {
-                    clusterName: "Lingkungan Kerja",
-                    tests: [
-                        {
-                            jenisPengujian: "Faktor Fisik",
-                            items: [
-                                {
-                                    param: "Kebisingan Personal",
-                                    jumlah: 15,
-                                    acuan: "Permenaker 05/2018",
-                                    peralatan: "Noise Dosimeter",
-                                    jumlahPeralatan: 2
-                                }, {
-                                    param: "Penerangan",
-                                    jumlah: 20,
-                                    acuan: "Permenaker 05/2018",
-                                    peralatan: "Lux Meter",
-                                    jumlahPeralatan: 1
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
-        }
-    ];
+const WorksheetPage = () => {
+  const { user } = useContext(ContextApi);
+  
+  const [worksheets, setWorksheets] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [editValues, setEditValues] = useState({});
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState('');
 
-    const [companyIndex, setCompanyIndex] = useState(0);
-    const [statuses, setStatuses] = useState({});
-    const currentCompany = companies[companyIndex];
+  const perPage = 5;
 
-    // ========================= HANDLER =========================
-    const handlePrevCompany = () => {
-        setCompanyIndex((prev) => (
-            prev > 0
-                ? prev - 1
-                : companies.length - 1
-        ));
-        setStatuses({});
+  useEffect(() => {
+    loadWorksheets();
+  }, [page, statusFilter]);
+
+  const loadWorksheets = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const filters = statusFilter ? { status: statusFilter } : {};
+      const result = await worksheetService.getAllWorksheets(page, perPage, filters);
+      setWorksheets(result.data || []);
+      setPagination(result.pagination || null);
+    } catch (err) {
+      console.error('Error loading worksheets:', err);
+      setError('Gagal memuat worksheet');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateItem = async (itemId, nilai, satuan, keterangan) => {
+    try {
+      await worksheetService.updateWorksheetItem(itemId, nilai, satuan, keterangan);
+      await loadWorksheets();
+      setEditingItemId(null);
+      setEditValues({});
+    } catch (err) {
+      console.error('Error updating item:', err);
+      alert('Gagal mengupdate item');
+    }
+  };
+
+  const handleStatusChange = async (worksheetId, newStatus) => {
+    try {
+      await worksheetService.updateWorksheet(worksheetId, { status: newStatus });
+      await loadWorksheets();
+    } catch (err) {
+      console.error('Error updating status:', err);
+      alert('Gagal mengupdate status');
+    }
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'DRAFT': 'bg-gray-100 text-gray-800',
+      'IN_PROGRESS': 'bg-blue-100 text-blue-800',
+      'COMPLETED': 'bg-green-100 text-green-800',
+      'APPROVED': 'bg-emerald-100 text-emerald-800',
+      'REJECTED': 'bg-red-100 text-red-800'
     };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
 
-    const handleNextCompany = () => {
-        setCompanyIndex((prev) => (
-            prev < companies.length - 1
-                ? prev + 1
-                : 0
-        ));
-        setStatuses({});
+  const getStatusLabel = (status) => {
+    const labels = {
+      'DRAFT': 'Draft',
+      'IN_PROGRESS': 'Sedang Dikerjakan',
+      'COMPLETED': 'Selesai',
+      'APPROVED': 'Disetujui',
+      'REJECTED': 'Ditolak'
     };
+    return labels[status] || status;
+  };
 
-    const handleStatusToggle = (paramName, type) => {
-        setStatuses((prev) => ({
-            ...prev,
-            [paramName]: type === "siap"
-                ? {
-                    siap: true,
-                    tidak: false
-                }
-                : {
-                    siap: false,
-                    tidak: true
-                }
-        }));
-    };
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm sticky top-0 z-40">
+        <Navbar />
+      </header>
 
-    const handleSubmit = () => {
-        const allParams = currentCompany
-            .clusters
-            .flatMap(
-                (cluster) => cluster.tests.flatMap((test) => test.items.map((i) => i.param))
-            );
+      <div className="flex">
+        <aside className="bg-linear-to-tr from-blue-200 to-blue-600 w-25 shadow-lg p-2 min-h-screen flex flex-col justify-between">
+          <Sidebar />
+        </aside>
 
-        const allFilled = allParams.every(
-            (p) => statuses[p] && (statuses[p].siap || statuses[p].tidak)
-        );
+        <main className="max-w-7xl mx-auto flex-1 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-blue-600 flex items-center space-x-2">
+              <FileText className="w-8 h-8" />
+              <span>Daftar Worksheet</span>
+            </h2>
+          </div>
 
-        if (!allFilled) {
-            alert("⚠️ Harap isi semua kolom Siap/Tidak sebelum submit!");
-            return;
-        }
+          {/* Filter Status */}
+          <div className="mb-4 flex gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Semua Status</option>
+              <option value="DRAFT">Draft</option>
+              <option value="IN_PROGRESS">Sedang Dikerjakan</option>
+              <option value="COMPLETED">Selesai</option>
+              <option value="APPROVED">Disetujui</option>
+              <option value="REJECTED">Ditolak</option>
+            </select>
+          </div>
 
-        alert("✅ Data berhasil disubmit!");
-
-        // Reset checklist ke awal
-        setStatuses({});
-    };
-
-    // ========================= RENDER UI =========================
-    return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="bg-white shadow-sm sticky top-0 z-40">
-                <Navbar/>
-            </header>
-
-            {/* BODY */}
-            <div className="flex">
-                {/* SIDEBAR */}
-                <div className="flex min-h-screen">
-                    <aside
-                        className="w-72 bg-gradient-to-br from-blue-100 via-blue-200 to-cyan-100 p-5 border-r border-gray-200">
-                        <div className="bg-white rounded-2xl shadow p-5">
-                            <div className="flex justify-center mb-4">
-                                <div
-                                    className="w-24 h-24 bg-gradient-to-br from-red-500 to-pink-500 rounded-full flex items-center justify-center text-white text-4xl">
-                                    👤
-                                </div>
-                            </div>
-
-                            <h3 className="text-center font-bold text-gray-800 text-sm">
-                                {currentCompany.name}
-                            </h3>
-                            <p className="text-center text-xs text-blue-600">
-                                {currentCompany.site}
-                            </p>
-
-                            <p className="mt-3 text-xs text-gray-600">Alamat:</p>
-                            <p className="text-xs text-gray-700">{currentCompany.address}</p>
-
-                            <div className="mt-3">
-                                <p className="text-xs text-gray-600 font-medium">
-                                    Kontak Person:
-                                </p>
-                                <p className="text-xs font-semibold text-gray-800">
-                                    {currentCompany.contactPerson}
-                                </p>
-                                <p className="text-xs text-blue-600">{currentCompany.phone}</p>
-                                <p className="text-xs text-blue-600">{currentCompany.email}</p>
-                            </div>
-
-                            {/* pemilihan jenis parameter */}
-                            {/* <div className="mt-6 space-y-2">   */}
-                            {/* Parameter */}
-                            {/* <button className="w-full flex items-center justify-start space-x-3 bg-blue-600 text-white px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-blue-700 transition">
-                                      <img className="w-5 h-5" src="./logo_parameter.png" alt="logo parameter" />
-                                      <span>Parameter</span>
-                                </button> */
-                            }
-                            {/* Jadwal & Personel */}
-                            {/* <button className="w-full flex items-center justify-start space-x-3 bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-blue-100 transition">
-                                  <img className="w-5 h-5" src="./logo-jadwal-personel.svg" alt="logo jadwal dan personel" />
-                                  <span>Jadwal &amp; Personel</span>
-                                </button> */
-                            }
-                            {/* Detail Transaksi */}
-                            {/* <button className="w-full flex items-center justify-start space-x-3 bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-blue-100 transition">
-                                  <img className="w-5 h-5" src="./logo-transaksi.svg" alt="logo detail transaksi" />
-                                  <span>Detail Transaksi</span>
-                                </button>
-                              </div> */
-                            }
-
-                            {/* TOMBOL GANTI PERUSAHAAN */}
-                            <div className="flex justify-center mt-4 space-x-2">
-                                <button
-                                    onClick={handlePrevCompany}
-                                    className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full">
-                                    <ChevronLeft className="w-4 h-4"/>
-                                </button>
-                                <button
-                                    onClick={handleNextCompany}
-                                    className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full">
-                                    <ChevronRight className="w-4 h-4"/>
-                                </button>
-                            </div>
-                        </div>
-                    </aside>
-                </div>
-
-                {/* MAIN CONTENT */}
-                <main className="flex-1 p-6">
-                    <h2
-                        className="text-xl font-bold text-blue-600 mb-4 flex items-center space-x-2">
-                        <span ><ClipboardList className="w-10 h-10"/></span>
-                        <span>Rincian Parameter</span>
-                    </h2>
-
-                    <div className="rounded-lg shadow-lg overflow-hidden">
-                        <table className="w-full text-sm border-separate border-spacing-0">
-                            <thead className="bg-gradient-to-br from-blue-200 to-cyan-100">
-                                <tr>
-                                    <th className="px-3 py-2 text-center border-b border-gray-300 rounded-tl-lg">Cluster</th>
-                                    <th className="px-3 py-2 border-b border-gray-300">Jenis Pengujian</th>
-                                    <th className="px-3 py-2 border-b border-gray-300">Parameter</th>
-                                    <th className="px-3 py-2 text-center border-b border-gray-300">Jumlah</th>
-                                    <th className="px-3 py-2 border-b border-gray-300">Acuan</th>
-                                    <th className="px-3 py-2 border-b border-gray-300">Peralatan</th>
-                                    <th className="px-3 py-2 text-center border-b border-gray-300">Jumlah</th>
-                                    <th className="px-3 py-2 text-center border-b border-gray-300">Siap</th>
-                                    <th className="px-3 py-2 text-center border-b border-gray-300 rounded-tr-lg">Tidak</th>
-                                </tr>
-                            </thead>
-
-                            <tbody className="divide-y divide-gray-200">
-                                {
-                                    currentCompany
-                                        .clusters
-                                        .map((cluster, ci) => {
-                                            const clusterRowCount = cluster
-                                                .tests
-                                                .reduce((sum, test) => sum + test.items.length, 0);
-
-                                            let clusterRowRendered = false;
-
-                                            return cluster
-                                                .tests
-                                                .map((test, ti) => {
-                                                    const testRowCount = test.items.length;
-                                                    let testRowRendered = false;
-
-                                                    return test
-                                                        .items
-                                                        .map((item, ii) => (
-                                                            <tr
-                                                                key={`${ci}-${ti}-${ii}`}
-                                                                className="bg-white hover:bg-gray-50 transition-colors">
-                                                                {/* CLUSTER NAME */}
-                                                                {
-                                                                    !clusterRowRendered && (
-                                                                        <td
-                                                                            className="px-3 py-2 border-b border-r border-gray-200 text-center align-middle "
-                                                                            rowSpan={clusterRowCount}>
-                                                                            {cluster.clusterName}
-                                                                        </td>
-                                                                    )
-                                                                }
-                                                                {
-                                                                    (() => {
-                                                                        clusterRowRendered = true;
-                                                                        return null;
-                                                                    })()
-                                                                }
-
-                                                                {/* JENIS PENGUJIAN */}
-                                                                {
-                                                                    !testRowRendered && (
-                                                                        <td
-                                                                            className="px-3 py-2 border-b border-r border-gray-200 text-center align-middle"
-                                                                            rowSpan={testRowCount}>
-                                                                            {test.jenisPengujian}
-                                                                        </td>
-                                                                    )
-                                                                }
-                                                                {
-                                                                    (() => {
-                                                                        testRowRendered = true;
-                                                                        return null;
-                                                                    })()
-                                                                }
-
-                                                                {/* PARAMETER ITEM */}
-                                                                <td className="px-3 py-2 border-b border-gray-200">{item.param}</td>
-                                                                <td className="px-3 py-2 text-center border-b border-gray-200">
-                                                                    {item.jumlah}
-                                                                </td>
-                                                                <td className="px-3 py-2 border-b border-gray-200">{item.acuan}</td>
-                                                                <td className="px-3 py-2 border-b border-gray-200">{item.peralatan}</td>
-                                                                <td className="px-3 py-2 text-center border-b border-gray-200">
-                                                                    {item.jumlahPeralatan}
-                                                                </td>
-
-                                                                {/* STATUS CHECKLIST */}
-                                                                <td className="px-3 py-2 text-center border-b border-gray-200">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={statuses[item.param]
-                                                                            ?.siap || false}
-                                                                        onChange={() => handleStatusToggle(item.param, "siap")}
-                                                                        className="w-4 h-4 text-blue-600"/>
-                                                                </td>
-                                                                <td className="px-3 py-2 text-center border-b border-gray-200">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={statuses[item.param]
-                                                                            ?.tidak || false}
-                                                                        onChange={() => handleStatusToggle(item.param, "tidak")}
-                                                                        className="w-4 h-4 text-red-600"/>
-                                                                </td>
-                                                            </tr>
-                                                        ));
-                                                });
-                                        })
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="bg-white rounded-lg shadow-xl mt-5 p-4 flex flex-col ">
-                        <div className="flex justify-between gap-6 items-stretch">
-                            {/* === BAHAN HABIS === */}
-                            <div className="flex-1 flex flex-col">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-blue-600">
-                                        <i className="fa-solid fa-flask"></i>
-                                    </span>
-                                    <h2 className="text-blue-700 font-semibold text-base">Bahan Habis</h2>
-                                </div>
-                                <div
-                                    className="flex-1 border border-gray-300 rounded-md p-2 text-sm text-gray-700 overflow-y-auto max-h-60">
-                                    <ol className="list-decimal list-inside space-y-1">
-                                        <li>Parameter SO₂</li>
-                                        <li>Parameter O₃</li>
-                                        <li>Parameter CO</li>
-                                        <li>Parameter NO₂</li>
-                                        <li>Parameter H₂S</li>
-                                        <li>Parameter SO₂</li>
-                                        <li>Parameter O₃</li>
-                                        <li>Parameter CO</li>
-                                        <li>Parameter NO₂</li>
-                                        <li>Parameter H₂S</li>
-                                        <li>Parameter SO₂</li>
-                                        <li>Parameter O₃</li>
-                                        <li>Parameter CO</li>
-                                        <li>Parameter NO₂</li>
-                                        <li>Parameter H₂S</li>
-                                    </ol>
-                                </div>
-                            </div>
-
-                            {/* === CATATAN + JADWAL === */}
-                            <div className="flex-[2] flex flex-col justify-between">
-                                {/* CATATAN */}
-                                <div className="flex flex-col flex-grow">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-blue-600">
-                                            <i className="fa-solid fa-note-sticky"></i>
-                                        </span>
-                                        <h2 className="text-blue-700 font-semibold text-base">Catatan</h2>
-                                    </div>
-                                    <div
-                                        className="border border-gray-300 rounded-md p-3 flex-1 overflow-y-auto text-sm text-gray-700 leading-relaxed min-h-[180px]">
-                                        <p>
-                                            <strong>Kaji Ulang 25/12/23</strong>
-                                            : Pastikan penyimpanan charcoal pada coolbox agar kualitas tetap terjaga.
-                                        </p>
-                                        <p className="mt-2">
-                                            <strong>Catatan Tambahan</strong>
-                                            : Cek kembali stok bahan sebelum pengambilan sampel berikutnya.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* CARD JADWAL, PERSONEL, TOMBOL */}
-                                <div className="flex justify-between items-center p-3 mt-3 gap-4 min-w-0">
-                                    {/* JUMLAH HARI & PERSONEL */}
-                                    <div className="flex items-center gap-4 flex-shrink-0">
-                                        {/* Jumlah Hari */}
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                            <img className="w-8 h-8 flex-shrink-0" src="./logo-jadwal.svg" alt="logo"/>
-                                            <label
-                                                className="text-base font-medium text-gray-700 flex-shrink-0 whitespace-nowrap">
-                                                Jumlah Hari
-                                            </label>
-                                            <input
-                                                type="number"
-                                                defaultValue="10"
-                                                className="border rounded px-2 py-1 text-center w-16 flex-shrink-0 text-sm"/>
-                                        </div>
-
-                                        {/* Jumlah Personel */}
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                            <img
-                                                className="w-8 h-8 flex-shrink-0"
-                                                src="./logo-jadwal-personel.svg"
-                                                alt="logo"/>
-                                            <label
-                                                className="text-base font-medium text-gray-700 flex-shrink-0 whitespace-nowrap">
-                                                Jumlah Personel
-                                            </label>
-                                            <input
-                                                type="number"
-                                                defaultValue="6"
-                                                className="border rounded px-2 py-1 text-center w-16 flex-shrink-0 text-sm"/>
-                                        </div>
-                                    </div>
-
-                                    {/* TOMBOL */}
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                        <Printer
-                                            className="w-8 h-8 hover:bg-blue-300 text-blue-600 flex-shrink-0 cursor-pointer"/>
-                                        <Save
-                                            className="w-8 h-8 hover:bg-blue-300 text-blue-600 flex-shrink-0 cursor-pointer"/>
-                                        <button
-                                            onClick={handleSubmit}
-                                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold flex items-center gap-2 flex-shrink-0 whitespace-nowrap">
-                                            <Check className="w-4 h-4 flex-shrink-0"/>
-                                            <span>SUBMIT</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </main>
+          {loading && (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-gray-600">Memuat data...</p>
             </div>
+          )}
 
-            {/* Chat */}
-            <button
-                className="fixed bottom-6 right-6 bg-blue-500 text-white p-4 rounded-full shadow-lg hover:bg-blue-600">
-                <MessageSquare className="w-6 h-6"/>
-            </button>
-        </div>
-    );
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && worksheets.length > 0 && (
+            <div className="space-y-4">
+              {worksheets.map((worksheet) => (
+                <div key={worksheet.id} className="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
+                  {/* Header */}
+                  <div
+                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+                    onClick={() => setExpandedId(expandedId === worksheet.id ? null : worksheet.id)}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <span className="font-semibold text-gray-800">{worksheet.nomorWorksheet}</span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(worksheet.status)}`}>
+                          {getStatusLabel(worksheet.status)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {worksheet.pengujian?.jenisPengujian?.name}
+                      </p>
+                    </div>
+                    {expandedId === worksheet.id ? <ChevronUp /> : <ChevronDown />}
+                  </div>
+
+                  {/* Expanded Content */}
+                  {expandedId === worksheet.id && (
+                    <div className="border-t px-4 py-4 space-y-4">
+                      {/* Info Row */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-500">Tanggal Mulai</p>
+                          <p className="font-medium">
+                            {worksheet.tanggalMulai ? new Date(worksheet.tanggalMulai).toLocaleDateString('id-ID') : '-'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Tanggal Selesai</p>
+                          <p className="font-medium">
+                            {worksheet.tanggalSelesai ? new Date(worksheet.tanggalSelesai).toLocaleDateString('id-ID') : '-'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Pegawai Utama</p>
+                          <p className="font-medium">{worksheet.pegawaiUtama ? `ID: ${worksheet.pegawaiUtama}` : '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Pegawai Pendamping</p>
+                          <p className="font-medium">{worksheet.pegawaiPendamping ? `ID: ${worksheet.pegawaiPendamping}` : '-'}</p>
+                        </div>
+                      </div>
+
+                      {/* Items Table */}
+                      <div className="mt-4">
+                        <h4 className="font-semibold text-gray-800 mb-3">Item Pengujian</h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-100">
+                              <tr>
+                                <th className="px-3 py-2 text-left">Parameter</th>
+                                <th className="px-3 py-2 text-left">Nilai</th>
+                                <th className="px-3 py-2 text-left">Satuan</th>
+                                <th className="px-3 py-2 text-left">Keterangan</th>
+                                <th className="px-3 py-2 text-center">Aksi</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {worksheet.worksheetItems?.map((item) => (
+                                <tr key={item.id} className="border-b hover:bg-gray-50">
+                                  <td className="px-3 py-2 font-medium">{item.parameter?.name}</td>
+                                  <td className="px-3 py-2">
+                                    {editingItemId === item.id ? (
+                                      <input
+                                        type="number"
+                                        step="0.001"
+                                        value={editValues.nilai || item.nilai || ''}
+                                        onChange={(e) => setEditValues(prev => ({ ...prev, nilai: e.target.value }))}
+                                        className="w-24 px-2 py-1 border rounded"
+                                      />
+                                    ) : (
+                                      <span>{item.nilai || '-'}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {editingItemId === item.id ? (
+                                      <input
+                                        type="text"
+                                        value={editValues.satuan || item.satuan || ''}
+                                        onChange={(e) => setEditValues(prev => ({ ...prev, satuan: e.target.value }))}
+                                        className="w-20 px-2 py-1 border rounded"
+                                      />
+                                    ) : (
+                                      <span>{item.satuan || item.parameter?.satuan || '-'}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    {editingItemId === item.id ? (
+                                      <input
+                                        type="text"
+                                        value={editValues.keterangan || item.keterangan || ''}
+                                        onChange={(e) => setEditValues(prev => ({ ...prev, keterangan: e.target.value }))}
+                                        className="w-32 px-2 py-1 border rounded"
+                                      />
+                                    ) : (
+                                      <span className="text-gray-600">{item.keterangan || '-'}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 text-center flex gap-2 justify-center">
+                                    {editingItemId === item.id ? (
+                                      <>
+                                        <button
+                                          onClick={() => handleUpdateItem(item.id, editValues.nilai, editValues.satuan, editValues.keterangan)}
+                                          className="text-green-600 hover:text-green-800"
+                                        >
+                                          <Save className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                          onClick={() => setEditingItemId(null)}
+                                          className="text-red-600 hover:text-red-800"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <button
+                                        onClick={() => {
+                                          setEditingItemId(item.id);
+                                          setEditValues({ nilai: item.nilai, satuan: item.satuan, keterangan: item.keterangan });
+                                        }}
+                                        className="text-blue-600 hover:text-blue-800"
+                                      >
+                                        <Edit2 className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Status Change */}
+                      <div className="mt-4 flex gap-2">
+                        <select
+                          value={worksheet.status}
+                          onChange={(e) => handleStatusChange(worksheet.id, e.target.value)}
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="DRAFT">Draft</option>
+                          <option value="IN_PROGRESS">Sedang Dikerjakan</option>
+                          <option value="COMPLETED">Selesai</option>
+                          <option value="APPROVED">Disetujui</option>
+                          <option value="REJECTED">Ditolak</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loading && !error && worksheets.length === 0 && (
+            <div className="text-center py-12">
+              <FileText className="w-16 h-16 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">Belum ada worksheet</p>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {pagination && pagination.pages > 1 && (
+            <div className="mt-6 flex items-center justify-between">
+              <button
+                onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                disabled={page === 1}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Sebelumnya
+              </button>
+              <span className="text-sm text-gray-700">
+                Halaman {pagination.page} dari {pagination.pages}
+              </span>
+              <button
+                onClick={() => setPage(prev => Math.min(prev + 1, pagination.pages))}
+                disabled={page === pagination.pages}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Berikutnya
+              </button>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Chat Button */}
+      <button className="fixed bottom-6 right-6 bg-blue-500 text-white p-4 rounded-full shadow-lg hover:bg-blue-600">
+        <MessageSquare className="w-6 h-6" />
+      </button>
+    </div>
+  );
 };
 
-export default ParameterTable;
+export default WorksheetPage;

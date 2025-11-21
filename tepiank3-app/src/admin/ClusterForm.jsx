@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from "react";
 import {useNavigate, useParams, useLocation} from "react-router-dom";
 import {Atom, ArrowLeft, Save} from "lucide-react";
+import { clusterService } from '../services/clusterService';
 
 const ClusterForm = () => {
     const navigate = useNavigate();
@@ -8,32 +9,104 @@ const ClusterForm = () => {
     const location = useLocation();
     const existingData = location.state;
 
-    const [formData, setFormData] = useState({jenisCluster: ""});
+    const [formData, setFormData] = useState({name: "", description: ""});
+    const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState({});
+    const [isDirty, setIsDirty] = useState(false);
 
-    // Jika ada data dari tombol edit, isi otomatis
+    // Load data jika edit mode
     useEffect(() => {
-        if (existingData) {
-            setFormData(existingData);
+        if (id && !existingData) {
+            loadClusterData();
+        } else if (existingData) {
+            setFormData({
+                name: existingData.name || '',
+                description: existingData.description || ''
+            });
         }
-    }, [existingData]);
+    }, [id, existingData]);
 
-    // Handle input
+    const loadClusterData = async () => {
+        try {
+            setLoading(true);
+            const data = await clusterService.getClusterById(id);
+            setFormData({
+                name: data.name || '',
+                description: data.description || ''
+            });
+        } catch (error) {
+            console.error('Error loading cluster:', error);
+            alert('Gagal memuat data cluster');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Handle input dengan validasi
     const handleChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+        setIsDirty(true);
+        
+        // Clear error saat user mengetik
+        if (errors[name]) {
+            setErrors(prev => ({ ...prev, [name]: '' }));
+        }
+    };
+    
+    // Validasi form
+    const validateForm = () => {
+        const newErrors = {};
+        
+        if (!formData.name.trim()) {
+            newErrors.name = 'Nama cluster harus diisi';
+        } else if (formData.name.length > 100) {
+            newErrors.name = 'Nama cluster maksimal 100 karakter';
+        }
+        
+        if (formData.description && formData.description.length > 500) {
+            newErrors.description = 'Deskripsi maksimal 500 karakter';
+        }
+        
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
     };
 
     // Handle simpan
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (id) {
-            alert("Data berhasil diperbarui!");
-        } else {
-            alert("Data berhasil ditambahkan!");
+        
+        if (!validateForm()) {
+            return;
         }
-        navigate("/Cluster");
+        
+        try {
+            setLoading(true);
+            const trimmedData = {
+                name: formData.name.trim(),
+                description: formData.description.trim() || null
+            };
+            
+            if (id) {
+                await clusterService.updateCluster(id, trimmedData);
+                alert("Data berhasil diperbarui!");
+            } else {
+                await clusterService.createCluster(trimmedData);
+                alert("Data berhasil ditambahkan!");
+            }
+            navigate("/Cluster");
+        } catch (error) {
+            console.error('Error saving cluster:', error);
+            const errorMsg = error.response?.data?.error || 'Gagal menyimpan data';
+            
+            if (error.response?.status === 400 && errorMsg.includes('already exists')) {
+                setErrors({ name: 'Nama cluster sudah ada' });
+            } else {
+                alert(errorMsg);
+            }
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -73,32 +146,66 @@ const ClusterForm = () => {
                             <form
                                 onSubmit={handleSubmit}
                                 className="bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 shadow-md rounded-xl p-6 space-y-6 w-100">
-                                {/* Input */}
+                                {/* Input Nama */}
                                 <div>
                                     <label className="block text-sm font-medium text-white mb-2">
-                                        Jenis Cluster
+                                        Nama Cluster *
                                     </label>
                                     <input
                                         type="text"
-                                        name="jenisCluster"
-                                        value={formData.jenisCluster}
+                                        name="name"
+                                        value={formData.name}
                                         onChange={handleChange}
-                                        placeholder="Masukkan jenis cluster"
-                                        required="required"
-                                        className="backdrop-blur-sm shadow-sm bg-white/90 w-full border border-blue-500 rounded-lg px-3 py-2 text-gray-800 focus:outline-none hover:scale-[1.03] "/>
+                                        placeholder="Masukkan nama cluster"
+                                        maxLength={100}
+                                        disabled={loading}
+                                        className={`backdrop-blur-sm shadow-sm bg-white/90 w-full border rounded-lg px-3 py-2 text-gray-800 focus:outline-none hover:scale-[1.03] disabled:opacity-50 ${
+                                            errors.name ? 'border-red-500' : 'border-blue-500'
+                                        }`}
+                                    />
+                                    {errors.name && (
+                                        <p className="text-red-200 text-sm mt-1">{errors.name}</p>
+                                    )}
+                                    <p className="text-blue-100 text-xs mt-1">
+                                        {formData.name.length}/100 karakter
+                                    </p>
+                                </div>
+
+                                {/* Input Deskripsi */}
+                                <div>
+                                    <label className="block text-sm font-medium text-white mb-2">
+                                        Deskripsi (Opsional)
+                                    </label>
+                                    <textarea
+                                        name="description"
+                                        value={formData.description}
+                                        onChange={handleChange}
+                                        placeholder="Masukkan deskripsi cluster"
+                                        rows={3}
+                                        maxLength={500}
+                                        disabled={loading}
+                                        className={`backdrop-blur-sm shadow-sm bg-white/90 w-full border rounded-lg px-3 py-2 text-gray-800 focus:outline-none hover:scale-[1.03] disabled:opacity-50 resize-none ${
+                                            errors.description ? 'border-red-500' : 'border-blue-500'
+                                        }`}
+                                    />
+                                    {errors.description && (
+                                        <p className="text-red-200 text-sm mt-1">{errors.description}</p>
+                                    )}
+                                    <p className="text-blue-100 text-xs mt-1">
+                                        {formData.description.length}/500 karakter
+                                    </p>
                                 </div>
 
                                 {/* Tombol Simpan */}
                                 <div className="flex justify-center">
                                     <button
                                         type="submit"
-                                        className="bg-white/70 text-blue-700 font-semibold px-6 py-2 rounded-lg flex items-center gap-2 shadow hover:text-blue-900 hover:scale-[1.03] transition-all">
+                                        disabled={loading}
+                                        className="bg-white/70 text-blue-700 font-semibold px-6 py-2 rounded-lg flex items-center gap-2 shadow hover:text-blue-900 hover:scale-[1.03] transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                                         <Save className="w-4 h-4"/>
-                                        <span>{
-                                                id
-                                                    ? "Update"
-                                                    : "Simpan"
-                                            }</span>
+                                        <span>
+                                            {loading ? 'Menyimpan...' : (id ? "Update" : "Simpan")}
+                                        </span>
                                     </button>
                                 </div>
                             </form>

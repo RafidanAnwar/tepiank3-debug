@@ -16,45 +16,47 @@ import PeralatanForm from './admin/PeralatanForm';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
-  const isAuthenticated = localStorage.getItem('isAuthenticated');
+  try {
+    const isAuthenticated = localStorage.getItem('isAuthenticated');
+    const userRole = localStorage.getItem('userRole');
 
-  if (!isAuthenticated) {
+    if (!isAuthenticated) {
+      return <Navigate to="/login" replace />;
+    }
+
+    // Check if user has admin role
+    if (userRole !== 'ADMIN' && userRole !== 'admin') {
+      return <Navigate to="/home" replace />;
+    }
+
+    return children;
+  } catch (error) {
+    console.error('Error accessing localStorage:', error);
     return <Navigate to="/login" replace />;
   }
-
-  return children;
 }
 
 function Adm() {
   return (
     <Routes>
-      <Route path="/HomeAdm" element={<HomeAdm/>}/>
-      <Route path="/Worksheet" element={<Worksheet/>}/>
-      <Route path="/Cluster" element={<Cluster/>}/>
-      <Route path="/ClusterForm" element={<ClusterForm/>}/>
-      <Route path="/ClusterForm/:id" element={<ClusterForm />} />
-      <Route path="/JenisPengujian" element={<JenisPengujian/>}/>
-      <Route path="/JenisPengujianForm" element={<JenisPengujianForm/>}/>
-      <Route path="/JenisPengujianForm/:id" element={<JenisPengujianForm/>}/>
-      <Route path="/User" element={<User/>}/>
-      <Route path="/Personalisasi" element={<Personalisasi/>}/>
-      <Route path="/PersonalisasiForm" element={<PersonalisasiForm/>}/>
-      <Route path="/PersonalisasiForm/:id" element={<PersonalisasiForm/>}/>
-      <Route path="/Parameter" element={<Parameter/>}/>
-      <Route path="/ParameterForm" element={<ParameterForm/>}/>
-      <Route path="/ParameterForm/:id" element={<ParameterForm/>}/>
-      <Route path="/Peralatan" element={<Peralatan/>}/>
-      <Route path="/PeralatanForm" element={<PeralatanForm/>}/>
-      <Route path="/PeralatanForm/:id" element={<PeralatanForm/>}/>
-
-      {/* <Route
-        path="/pengujian"
-        element={
-          <ProtectedRoute>
-            <Pengujian />
-          </ProtectedRoute>
-        }
-      /> */}
+      <Route path="/HomeAdm" element={<ProtectedRoute><HomeAdm/></ProtectedRoute>}/>
+      <Route path="/Worksheet" element={<ProtectedRoute><Worksheet/></ProtectedRoute>}/>
+      <Route path="/Cluster" element={<ProtectedRoute><Cluster/></ProtectedRoute>}/>
+      <Route path="/ClusterForm" element={<ProtectedRoute><ClusterForm/></ProtectedRoute>}/>
+      <Route path="/ClusterForm/:id" element={<ProtectedRoute><ClusterForm /></ProtectedRoute>} />
+      <Route path="/JenisPengujian" element={<ProtectedRoute><JenisPengujian/></ProtectedRoute>}/>
+      <Route path="/JenisPengujianForm" element={<ProtectedRoute><JenisPengujianForm/></ProtectedRoute>}/>
+      <Route path="/JenisPengujianForm/:id" element={<ProtectedRoute><JenisPengujianForm/></ProtectedRoute>}/>
+      <Route path="/User" element={<ProtectedRoute><User/></ProtectedRoute>}/>
+      <Route path="/Personalisasi" element={<ProtectedRoute><Personalisasi/></ProtectedRoute>}/>
+      <Route path="/PersonalisasiForm" element={<ProtectedRoute><PersonalisasiForm/></ProtectedRoute>}/>
+      <Route path="/PersonalisasiForm/:id" element={<ProtectedRoute><PersonalisasiForm/></ProtectedRoute>}/>
+      <Route path="/Parameter" element={<ProtectedRoute><Parameter/></ProtectedRoute>}/>
+      <Route path="/ParameterForm" element={<ProtectedRoute><ParameterForm/></ProtectedRoute>}/>
+      <Route path="/ParameterForm/:id" element={<ProtectedRoute><ParameterForm/></ProtectedRoute>}/>
+      <Route path="/Peralatan" element={<ProtectedRoute><Peralatan/></ProtectedRoute>}/>
+      <Route path="/PeralatanForm" element={<ProtectedRoute><PeralatanForm/></ProtectedRoute>}/>
+      <Route path="/PeralatanForm/:id" element={<ProtectedRoute><PeralatanForm/></ProtectedRoute>}/>
       <Route path="/" element={<Navigate to="/login" replace />} />
     </Routes>
   );

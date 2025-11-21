@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
-import tb_User from '../dataDummy/tb_User';
+import { authService } from '../services/authService';
 
 function Register() {
   const navigate = useNavigate();
@@ -27,37 +27,24 @@ function Register() {
   
   
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Register:', formData);
 
-    // Ambil user dari localStorage atau dari tb_User default
-    const tbUserData = JSON.parse(localStorage.getItem('tb_User')) || tb_User;
+    try {
+      await authService.register({
+        email: formData.email,
+        firstname: formData.firstname,
+        fullname: formData.fullname,
+        password: formData.password
+      });
 
-    // Cek apakah email sudah digunakan
-    const existingUser = tbUserData.find(user => user.email === formData.email);
-    if (existingUser) {
-      alert('Email sudah terdaftar. Silakan gunakan email lain.');
-      return;
+      alert('Registrasi berhasil! Silakan login.');
+      navigate('/login');
+    } catch (error) {
+      console.error('Register error:', error);
+      const message = error.response?.data?.error || 'Terjadi kesalahan saat registrasi';
+      alert(message);
     }
-
-    // Buat user baru
-    const newUser = {
-      id: tbUserData.length + 1,
-      firstname: formData.firstname,
-      fullname: formData.fullname,
-      email: formData.email,
-      password: formData.password,
-      role: formData.role,
-      createdAt: new Date().toISOString(),
-    };
-
-    // Simpan ke localStorage
-    const updatedUsers = [...tbUserData, newUser];
-    localStorage.setItem('tb_User', JSON.stringify(updatedUsers));
-
-    alert('Registrasi berhasil! Silakan login.');
-    navigate('/login');
   };
 
 

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {  Upload, Save, Edit } from 'lucide-react';
 import { NavBar } from './NavBar';
+import { ContextApi } from '../Context/ContextApi';
 
 export default function Pengujian() {
   const navigate = useNavigate();
@@ -10,12 +11,19 @@ export default function Pengujian() {
   const [logoPreview, setLogoPreview] = useState(null);
   const profileMenuRef = useRef(null);
   const fileInputRef = useRef(null);
-  const userName = localStorage.getItem('userName') || 'Musfiq';
+  const { user } = useContext(ContextApi);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
 
 
   const [formData, setFormData] = useState({
     namaPerusahaan: '',
     jenisKegiatan: '',
+    alamatPerusahaan: '',
     jmlTenagaKerjaPria: '',
     jmlTenagaKerjaWanita: '',
     provinsi: '',
@@ -67,10 +75,25 @@ export default function Pengujian() {
     });
   };
 
-  const handleSubmit = () => {
-    console.log('Form Data:', formData);
-    // Navigate to Parameter Pengujian page
-    navigate('/parameter-pengujian');
+  const handleSubmit = async () => {
+    try {
+      if (!formData.namaPerusahaan || !formData.jenisKegiatan) {
+        alert('Mohon lengkapi data yang wajib diisi');
+        return;
+      }
+
+      const companyData = {
+        ...formData,
+        logo: logoPreview
+      };
+
+      localStorage.setItem('companyData', JSON.stringify(companyData));
+
+      navigate('/parameter-pengujian');
+    } catch (error) {
+      console.error('Error saving company data:', error);
+      alert('Gagal menyimpan data. Silakan coba lagi.');
+    }
   };
 
   const steps = [
@@ -82,17 +105,11 @@ export default function Pengujian() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-
       <NavBar />
 
-
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Title */}
         <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">Pengajuan Layanan Pengujian</h1>
 
-        {/* Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-center space-x-4">
             {steps.map((step, index) => (
@@ -121,10 +138,8 @@ export default function Pengujian() {
           </div>
         </div>
 
-        {/* Form Card */}
         <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Logo Upload Section */}
             <div className="lg:col-span-1">
               <div className="sticky top-24">
                 <div className="bg-gray-100 rounded-2xl p-6 flex flex-col items-center">
@@ -158,9 +173,7 @@ export default function Pengujian() {
               </div>
             </div>
 
-            {/* Form Fields Section */}
             <div className="lg:col-span-2 space-y-4">
-              {/* Row 1 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Nama Perusahaan</label>
@@ -189,12 +202,14 @@ export default function Pengujian() {
                 </div>
               </div>
 
-              {/* Row 2 */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Alamat Perusahaan</label>
                   <input
                     type="text"
+                    name="alamatPerusahaan"
+                    value={formData.alamatPerusahaan}
+                    onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Alamat lengkap"
                   />
@@ -221,7 +236,6 @@ export default function Pengujian() {
                 </div>
               </div>
 
-              {/* Row 3 */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Provinsi</label>
@@ -258,7 +272,6 @@ export default function Pengujian() {
                 </div>
               </div>
 
-              {/* Row 4 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Kecamatan</label>
@@ -282,7 +295,6 @@ export default function Pengujian() {
                 </div>
               </div>
 
-              {/* Row 5 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Nama Penanggung Jawab Pengujian (Pihak perusahaan)</label>
                 <input
@@ -294,7 +306,6 @@ export default function Pengujian() {
                 />
               </div>
 
-              {/* Row 6 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Email Perusahaan</label>
                 <input
@@ -306,7 +317,6 @@ export default function Pengujian() {
                 />
               </div>
 
-              {/* Row 7 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">No. HP Penanggung Jawab Pengujian (Pihak perusahaan)</label>
                 <input
@@ -318,7 +328,6 @@ export default function Pengujian() {
                 />
               </div>
 
-              {/* Row 8 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Status WLKP Online</label>
@@ -345,7 +354,6 @@ export default function Pengujian() {
                 </div>
               </div>
 
-              {/* Row 9 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Nomor WLKP Online</label>
                 <input
@@ -357,9 +365,19 @@ export default function Pengujian() {
                 />
               </div>
 
-              {/* Action Buttons */}
               <div className="flex gap-4 pt-4">
-                <button className="flex-1 bg-linear-to-r from-blue-500 to-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 cursor-pointer">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    const savedData = localStorage.getItem('companyData');
+                    if (savedData) {
+                      const data = JSON.parse(savedData);
+                      setFormData(data);
+                      setLogoPreview(data.logo);
+                    }
+                  }}
+                  className="flex-1 bg-linear-to-r from-blue-500 to-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 cursor-pointer"
+                >
                   <Edit className="w-5 h-5" />
                   <span>Edit</span>
                 </button>
@@ -368,20 +386,12 @@ export default function Pengujian() {
                   className="flex-1 bg-linear-to-r from-green-500 to-green-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-green-600 hover:to-green-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 cursor-pointer"
                 >
                   <Save className="w-5 h-5" />
-                  <span>Simpan</span>
+                  <span>Simpan & Lanjutkan</span>
                 </button>
               </div>
             </div>
           </div>
         </div>
-
-        {/* CTA Section */}
-        {/* <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-12 text-center mb-8">
-          <h2 className="text-4xl font-bold text-white mb-4">Pellentesque suscipit fringilla libero eu.</h2>
-          <button className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-lg font-semibold transition-colors shadow-lg">
-            Get a Demo →
-          </button>
-        </div> */}
       </div>
     </div>
   );

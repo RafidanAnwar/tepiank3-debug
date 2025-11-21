@@ -1,12 +1,17 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, LogOut, UserCircle, ArrowLeft, Camera, Upload, X, CheckCircle, AlertCircle, Eye, EyeOff, Lock } from 'lucide-react';
+import { userService } from '../services/userService';
+import { authService } from '../services/authService';
+import { ContextApi } from '../Context/ContextApi';
+import CameraCapture from './CameraCapture';
 
 const Profile = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState('view'); // 'view', 'edit', or 'password'
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   // const [showWarningPopup, setShowWarningPopup] = useState(false);
   const [isFirstVisit, setIsFirstVisit] = useState(true);
@@ -22,15 +27,41 @@ const Profile = () => {
 
 
 
-  // Profile data state
+  const { user, logout } = useContext(ContextApi);
   const [profileData, setProfileData] = useState({
-    name: 'Musfiq',
-    email: 'musfiq@example.com',
+    firstname: '',
+    fullname: '',
+    email: '',
     phone: '',
     address: '',
-    photo: null,
-    password: 'oldpassword123' // Stored for demo purposes
+    company: '',
+    position: '',
+    avatar: null
   });
+  const [loading, setLoading] = useState(true);
+
+  // Secure password validation - should be done server-side
+  const validatePassword = async () => {
+    const errors = {};
+
+    if (!passwordData.oldPassword) {
+      errors.oldPassword = 'Password lama harus diisi';
+    }
+
+    if (!passwordData.newPassword) {
+      errors.newPassword = 'Password baru harus diisi';
+    } else if (passwordData.newPassword.length < 6) {
+      errors.newPassword = 'Password minimal 6 karakter';
+    }
+
+    if (!passwordData.confirmPassword) {
+      errors.confirmPassword = 'Konfirmasi password harus diisi';
+    } else if (passwordData.confirmPassword !== passwordData.newPassword) {
+      errors.confirmPassword = 'Konfirmasi password tidak sesuai';
+    }
+
+    return errors;
+  };
 
   const [editData, setEditData] = useState({ ...profileData });
 
@@ -43,9 +74,46 @@ const Profile = () => {
 
   const [passwordErrors, setPasswordErrors] = useState({});
 
+  // Load profile data
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      const data = await userService.getProfile();
+      setProfileData({
+        firstname: data.firstname || '',
+        fullname: data.fullname || '',
+        email: data.email || '',
+        phone: data.phone || '',
+        address: data.address || '',
+        company: data.company || '',
+        position: data.position || '',
+        avatar: data.avatar || null
+      });
+      setEditData({
+        firstname: data.firstname || '',
+        fullname: data.fullname || '',
+        email: data.email || '',
+        phone: data.phone || '',
+        address: data.address || '',
+        company: data.company || '',
+        position: data.position || '',
+        avatar: data.avatar || null
+      });
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      alert('Gagal memuat data profil');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Check if profile is complete
   const isProfileComplete = () => {
-    return profileData.name && profileData.email && profileData.phone && profileData.address;
+    return profileData.firstname && profileData.email && profileData.phone && profileData.address;
   };
 
   // // Show warning on first visit if profile incomplete
@@ -92,94 +160,132 @@ const Profile = () => {
     setPasswordErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  const validatePassword = () => {
-    const errors = {};
 
-    // Check old password
-    if (!passwordData.oldPassword) {
-      errors.oldPassword = 'Password lama harus diisi';
-    } else if (passwordData.oldPassword !== profileData.password) {
-      errors.oldPassword = 'Password lama tidak sesuai';
+
+  const handlePasswordSubmit = async () => {
+    try {
+      const errors = await validatePassword();
+
+      if (Object.keys(errors).length > 0) {
+        setPasswordErrors(errors);
+        return;
+      }
+
+      setLoading(true);
+      await authService.changePassword(passwordData.oldPassword, passwordData.newPassword);
+      
+      setCurrentPage('view');
+      setSuccessMessage('Password berhasil diubah');
+      setShowSuccessPopup(true);
+
+      setTimeout(() => {
+        setShowSuccessPopup(false);
+      }, 3000);
+    } catch (error) {
+      setPasswordErrors({ 
+        general: error.response?.data?.error || 'Gagal mengubah password. Silakan coba lagi.' 
+      });
+    } finally {
+      setLoading(false);
     }
-
-    // Check new password
-    if (!passwordData.newPassword) {
-      errors.newPassword = 'Password baru harus diisi';
-    } else if (passwordData.newPassword.length < 8) {
-      errors.newPassword = 'Password minimal 8 karakter';
-    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(passwordData.newPassword)) {
-      errors.newPassword = 'Password harus mengandung huruf besar, huruf kecil, dan angka';
-    } else if (passwordData.newPassword === passwordData.oldPassword) {
-      errors.newPassword = 'Password baru harus berbeda dengan password lama';
-    }
-
-    // Check confirm password
-    if (!passwordData.confirmPassword) {
-      errors.confirmPassword = 'Konfirmasi password harus diisi';
-    } else if (passwordData.confirmPassword !== passwordData.newPassword) {
-      errors.confirmPassword = 'Konfirmasi password tidak sesuai';
-    }
-
-    return errors;
   };
 
-  const handlePasswordSubmit = () => {
-    const errors = validatePassword();
-
-    if (Object.keys(errors).length > 0) {
-      setPasswordErrors(errors);
-      return;
-    }
-
-    // Save new password
-    setProfileData(prev => ({ ...prev, password: passwordData.newPassword }));
-    setCurrentPage('view');
-    setSuccessMessage('Password berhasil diubah');
-    setShowSuccessPopup(true);
-
-    setTimeout(() => {
-      setShowSuccessPopup(false);
-    }, 3000);
-  };
-
-  const handlePhotoSelect = (event, source) => {
+  const handlePhotoSelect = async (event, source) => {
     const file = event.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditData(prev => ({ ...prev, photo: reader.result }));
-      };
-      reader.readAsDataURL(file);
+      await uploadPhoto(file);
     }
     setShowPhotoOptions(false);
   };
 
-  const handleSaveChanges = () => {
-    // Validate all fields
-    if (!editData.name || !editData.email || !editData.phone || !editData.address) {
-      // setShowWarningPopup(true);
+  const handleCameraCapture = async (file) => {
+    await uploadPhoto(file);
+  };
+
+  const uploadPhoto = async (file) => {
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Ukuran file terlalu besar. Maksimal 5MB.');
+      return;
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('File harus berupa gambar.');
       return;
     }
 
-    // Save changes
-    setProfileData({ ...editData });
-    setCurrentPage('view');
-    setSuccessMessage('Data profil berhasil disimpan');
-    setShowSuccessPopup(true);
+    try {
+      setLoading(true);
+      const result = await userService.uploadAvatar(file);
+      setEditData(prev => ({ ...prev, avatar: result.avatar }));
+      setSuccessMessage('Foto profil berhasil diupload');
+      setShowSuccessPopup(true);
+      setTimeout(() => setShowSuccessPopup(false), 3000);
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      alert('Gagal mengupload foto profil');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    setTimeout(() => {
-      setShowSuccessPopup(false);
-    }, 3000);
+  const handleSaveChanges = async () => {
+    try {
+      // Validate all fields
+      if (!editData.firstname || !editData.email) {
+        alert('Nama dan email harus diisi');
+        return;
+      }
+
+      setLoading(true);
+      const updatedUser = await userService.updateProfile({
+        firstname: editData.firstname,
+        fullname: editData.fullname,
+        phone: editData.phone,
+        address: editData.address,
+        company: editData.company,
+        position: editData.position
+      });
+
+      // Avatar is already updated via upload, no need to update again
+
+      // Save changes
+      setProfileData({ ...editData });
+      setCurrentPage('view');
+      setSuccessMessage('Data profil berhasil disimpan');
+      setShowSuccessPopup(true);
+
+      setTimeout(() => {
+        setShowSuccessPopup(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('Gagal menyimpan data profil');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogout = () => {
-    alert('Logging out...');
+    logout();
     navigate('/login', { replace: true });
   };
 
   const getInitials = (name) => {
     return name ? name.charAt(0).toUpperCase() : 'U';
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-2 text-gray-600">Memuat profil...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -240,16 +346,16 @@ const Profile = () => {
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
                   className="flex items-center space-x-2 cursor-pointer hover:bg-gray-100 rounded-lg p-2 transition-colors"
                 >
-                  {profileData.photo ? (
-                    <img src={profileData.photo} alt="Profile" className="w-10 h-10 rounded-full object-cover" />
+                  {profileData.avatar && profileData.avatar.startsWith('/uploads') ? (
+                    <img src={`http://localhost:3001${profileData.avatar}`} alt="Profile" className="w-10 h-10 rounded-full object-cover" />
                   ) : (
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center">
-                      <span className="text-white font-semibold text-sm">{getInitials(profileData.name)}</span>
+                      <span className="text-white font-semibold text-sm">{getInitials(profileData.firstname)}</span>
                     </div>
                   )}
                   <div className="hidden md:block text-left">
-                    <p className="text-sm font-semibold text-gray-800">{profileData.name}</p>
-                    <p className="text-xs text-gray-500">Admin</p>
+                    <p className="text-sm font-semibold text-gray-800">{profileData.firstname}</p>
+                    <p className="text-xs text-gray-500">{user?.role || 'Admin'}</p>
                   </div>
                   <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} />
                 </button>
@@ -314,20 +420,27 @@ const Profile = () => {
             </div>
 
             <div className="flex flex-col items-center mb-8">
-              {profileData.photo ? (
-                <img src={profileData.photo} alt="Profile" className="w-32 h-32 rounded-full object-cover mb-4 border-4 border-blue-100" />
+              {profileData.avatar && profileData.avatar.startsWith('/uploads') ? (
+                <img src={`http://localhost:3001${profileData.avatar}`} alt="Profile" className="w-32 h-32 rounded-full object-cover mb-4 border-4 border-blue-100" />
               ) : (
                 <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center mb-4 border-4 border-blue-100">
-                  <span className="text-white font-bold text-4xl">{getInitials(profileData.name)}</span>
+                  <span className="text-white font-bold text-4xl">{getInitials(profileData.firstname)}</span>
                 </div>
               )}
             </div>
 
             <div className="space-y-6">
               <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">Nama Panggilan</label>
+                <div className="bg-gray-50 px-4 py-3 rounded-lg">
+                  <p className="text-gray-800">{profileData.firstname || '-'}</p>
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-600 mb-2">Nama Lengkap</label>
                 <div className="bg-gray-50 px-4 py-3 rounded-lg">
-                  <p className="text-gray-800">{profileData.name || '-'}</p>
+                  <p className="text-gray-800">{profileData.fullname || '-'}</p>
                 </div>
               </div>
 
@@ -349,6 +462,20 @@ const Profile = () => {
                 <label className="block text-sm font-medium text-gray-600 mb-2">Alamat</label>
                 <div className="bg-gray-50 px-4 py-3 rounded-lg">
                   <p className="text-gray-800">{profileData.address || '-'}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">Perusahaan</label>
+                <div className="bg-gray-50 px-4 py-3 rounded-lg">
+                  <p className="text-gray-800">{profileData.company || '-'}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">Posisi</label>
+                <div className="bg-gray-50 px-4 py-3 rounded-lg">
+                  <p className="text-gray-800">{profileData.position || '-'}</p>
                 </div>
               </div>
 
@@ -490,11 +617,11 @@ const Profile = () => {
 
             <div className="flex flex-col items-center mb-8">
               <div className="relative">
-                {editData.photo ? (
-                  <img src={editData.photo} alt="Profile" className="w-32 h-32 rounded-full object-cover border-4 border-blue-100" />
+                {editData.avatar && editData.avatar.startsWith('/uploads') ? (
+                  <img src={`http://localhost:3001${editData.avatar}`} alt="Profile" className="w-32 h-32 rounded-full object-cover border-4 border-blue-100" />
                 ) : (
                   <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center border-4 border-blue-100">
-                    <span className="text-white font-bold text-4xl">{getInitials(editData.name)}</span>
+                    <span className="text-white font-bold text-4xl">{getInitials(editData.firstname)}</span>
                   </div>
                 )}
                 <button
@@ -517,7 +644,10 @@ const Profile = () => {
 
                     <div className="space-y-3">
                       <button
-                        onClick={() => cameraInputRef.current.click()}
+                        onClick={() => {
+                          setShowPhotoOptions(false);
+                          setShowCamera(true);
+                        }}
                         className="w-full flex items-center space-x-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                       >
                         <Camera className="w-5 h-5 text-blue-600" />
@@ -543,25 +673,35 @@ const Profile = () => {
                 onChange={(e) => handlePhotoSelect(e, 'file')}
                 className="hidden"
               />
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={(e) => handlePhotoSelect(e, 'camera')}
-                className="hidden"
+              <CameraCapture
+                isOpen={showCamera}
+                onClose={() => setShowCamera(false)}
+                onCapture={handleCameraCapture}
               />
             </div>
 
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nama Lengkap <span className="text-red-500">*</span>
+                  Nama Panggilan <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  value={editData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  value={editData.firstname}
+                  onChange={(e) => handleInputChange('firstname', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Masukkan nama panggilan"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nama Lengkap
+                </label>
+                <input
+                  type="text"
+                  value={editData.fullname}
+                  onChange={(e) => handleInputChange('fullname', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Masukkan nama lengkap"
                 />
@@ -582,7 +722,7 @@ const Profile = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  No. HP <span className="text-red-500">*</span>
+                  No. HP
                 </label>
                 <input
                   type="tel"
@@ -595,14 +735,40 @@ const Profile = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Alamat <span className="text-red-500">*</span>
+                  Alamat
                 </label>
                 <textarea
                   value={editData.address}
                   onChange={(e) => handleInputChange('address', e.target.value)}
-                  rows="4"
+                  rows="3"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                   placeholder="Masukkan alamat lengkap"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Perusahaan
+                </label>
+                <input
+                  type="text"
+                  value={editData.company}
+                  onChange={(e) => handleInputChange('company', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Masukkan nama perusahaan"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Posisi/Jabatan
+                </label>
+                <input
+                  type="text"
+                  value={editData.position}
+                  onChange={(e) => handleInputChange('position', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Masukkan posisi/jabatan"
                 />
               </div>
 

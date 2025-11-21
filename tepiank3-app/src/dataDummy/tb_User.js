@@ -1,30 +1,9 @@
-const tbUser = [
-    {
+// Data pengguna sekarang diambil dari API backend
+// Gunakan userService untuk mengakses data pengguna
+// File ini tidak lagi digunakan untuk menyimpan data dummy
 
-        createdAt: "2025-11-07T02:54:07.966Z",
-        email: "eko.herdianto.job@gmail.com",
-        firstname: "Eko",
-        fullname: "Eko Herdianto",
-        id: 1,
-        password: "a",
-        role: "User Aja"
-    }
-]
+// Untuk mengakses data pengguna, gunakan:
+// import { userService } from '../services/userService';
+// const users = await userService.getAllUsers();
 
-
-const tbUser_Fix = [
-    // {
-    //     id:"",
-    //     email: "",
-    //     lastname: "",
-    //     fullname: "",
-    //     password: "",
-    //     phone: "",
-    //     addres: "",
-    //     createdAt:""
-    // }
-]
-
-
-
-export default tbUser;
+export default [];

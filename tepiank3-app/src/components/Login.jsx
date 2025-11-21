@@ -1,13 +1,23 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useContext, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
-const tbUserData =  localStorage.getItem('tb_User')
-const tbUser =  JSON.parse(tbUserData)
+import { authService } from '../services/authService';
+import { ContextApi } from '../Context/ContextApi';
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, isAuthenticated, user } = useContext(ContextApi);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ email: '', password: '' });
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const from = location.state?.from?.pathname || (user.role === 'ADMIN' ? '/HomeAdm' : '/home');
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, user, navigate, location]);
 
   const handleSubmit_Old = (e) => {
     e.preventDefault();
@@ -19,33 +29,35 @@ function Login() {
 
 
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    console.log('Login attempt:', formData);
-    // Cari user berdasarkan email
-    const user = tbUser.find(u => u.email === formData.email);
+    try {
+      if (!formData.email || !formData.password) {
+        alert('Email dan password harus diisi!');
+        return;
+      }
 
-    // Validasi email
-    if (!user) {
-      alert('Email tidak ditemukan! Silakan daftar terlebih dahulu.');
-      return;
+      const { user } = await authService.login(formData.email, formData.password);
+      
+      // Update context dengan user data
+      login(user);
+      
+      // Get redirect path from location state or default based on role
+      const from = location.state?.from?.pathname || (user.role === 'ADMIN' ? '/HomeAdm' : '/home');
+      
+      // Redirect to intended page
+      navigate(from, { replace: true });
+      
+      // Optional: Show welcome message
+      setTimeout(() => {
+        alert(`Selamat datang, ${user.firstname}!`);
+      }, 100);
+    } catch (error) {
+      console.error('Login error:', error);
+      const message = error.response?.data?.error || 'Terjadi kesalahan saat login';
+      alert(message);
     }
-
-    // Validasi password
-    if (user.password !== formData.password) {
-      alert('Password salah! Coba lagi.');
-      return;
-    }
-
-    // Jika lolos semua
-    alert(`Selamat datang, ${user.firstname}!`);
-    console.log('User login:', user);
-
-    // Simulasi login (misalnya simpan ke localStorage)
-    localStorage.setItem('loggedUser', JSON.stringify(user));
-
-    navigate('/home');
   };
 
 
@@ -124,7 +136,13 @@ function Login() {
                 <input type="checkbox" className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
                 <span className="ml-2 text-gray-600">Ingat saya</span>
               </label>
-              <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">Lupa password?</a>
+              <button 
+                type="button"
+                onClick={() => navigate('/forgot-password')}
+                className="text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Lupa password?
+              </button>
             </div>
 
             {/* Submit Button */}
