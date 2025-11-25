@@ -1,0 +1,349 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               Int         @id @default(autoincrement())
+  email            String      @unique
+  firstname        String
+  fullname         String
+  password         String
+  role             Role        @default(USER)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  address          String?
+  avatar           String?
+  company          String?
+  isActive         Boolean     @default(true)
+  lastLogin        DateTime?
+  phone            String?
+  position         String?
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  orders           Order[]
+  pengujian        Pengujian[]
+  worksheets       Worksheet[]      @relation("WorksheetUser")
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Cluster {
+  id             Int              @id @default(autoincrement())
+  name           String           @unique
+  description    String?
+  icon           String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  isActive       Boolean          @default(true)
+  jenisPengujian JenisPengujian[]
+
+  @@index([name])
+  @@index([isActive])
+  @@map("clusters")
+}
+
+model JenisPengujian {
+  id          Int         @id @default(autoincrement())
+  name        String
+  description String?
+  clusterId   Int
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  isActive    Boolean     @default(true)
+  cluster     Cluster     @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+  parameters  Parameter[]
+  pengujian   Pengujian[]
+
+  @@unique([name, clusterId])
+  @@index([clusterId])
+  @@index([name])
+  @@index([isActive])
+  @@map("jenis_pengujian")
+}
+
+model Parameter {
+  id               Int             @id @default(autoincrement())
+  name             String
+  satuan           String?
+  acuan            String?
+  harga            Decimal         @db.Decimal(10, 2)
+  jenisPengujianId Int
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  isActive         Boolean     @default(true)
+  orderItems       OrderItem[]
+  pengujianItems   PengujianItem[]
+  parameterPeralatans ParameterPeralatan[]
+  worksheetItems   WorksheetItem[] @relation("WorksheetParameter")
+  jenisPengujian   JenisPengujian  @relation(fields: [jenisPengujianId], references: [id], onDelete: Cascade)
+
+  @@unique([name, jenisPengujianId])
+  @@index([jenisPengujianId])
+  @@index([name])
+  @@index([isActive])
+  @@index([harga])
+  @@map("parameters")
+}
+
+model Peralatan {
+  id                  Int             @id @default(autoincrement())
+  nomorAlat           String?         @map("nomor_alat")
+  name                String          @unique
+  description         String?
+  status              PeralatanStatus @default(AVAILABLE)
+  merk                String?
+  tipe                String?
+  nomorSeri           String?         @map("nomor_seri")
+  kodeBMN             String?         @map("kode_bmn")
+  nup                 String?
+  waktuPengadaan      DateTime?       @map("waktu_pengadaan")
+  lokasiPenyimpanan   String?         @map("lokasi_penyimpanan")
+  tanggalKalibrasi    DateTime?       @map("tanggal_kalibrasi")
+  koreksi             String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  parameterPeralatans ParameterPeralatan[]
+
+  @@index([status])
+  @@index([name])
+  @@index([merk])
+  @@index([nomorSeri])
+  @@index([nomorAlat])
+  @@map("peralatan")
+}
+
+model ParameterPeralatan {
+  id           Int       @id @default(autoincrement())
+  parameterId  Int
+  peralatanId  Int
+  quantity     Int       @default(1)
+  parameter    Parameter @relation(fields: [parameterId], references: [id], onDelete: Cascade)
+  peralatan    Peralatan @relation(fields: [peralatanId], references: [id], onDelete: Restrict)
+
+  @@unique([parameterId, peralatanId])
+  @@index([parameterId])
+  @@index([peralatanId])
+  @@map("parameter_peralatan")
+}
+
+model Pengujian {
+  id                      Int               @id @default(autoincrement())
+  nomorPengujian          String            @unique @map("nomor_pengujian")
+  userId                  Int               @map("user_id")
+  jenisPengujianId        Int               @map("jenis_pengujian_id")
+  status                  PengujianStatus   @default(PENDING)
+  totalAmount             Decimal           @db.Decimal(12, 2) @map("total_amount")
+  tanggalPengujian        DateTime?         @map("tanggal_pengujian")
+  lokasi                  String?
+  catatan                 String?
+  namaPerusahaan          String?           @map("nama_perusahaan")
+  jenisKegiatan           String?           @map("jenis_kegiatan")
+  alamatPerusahaan        String?           @map("alamat_perusahaan")
+  jmlTenagaKerjaPria      Int?              @map("jml_tenaga_kerja_pria")
+  jmlTenagaKerjaWanita    Int?              @map("jml_tenaga_kerja_wanita")
+  provinsi                String?
+  kota                    String?
+  fasilitasKesehatan      String?           @map("fasilitas_kesehatan")
+  kecamatan               String?
+  kelurahan               String?
+  namaPenanggungJawab     String?           @map("nama_penanggung_jawab")
+  emailPerusahaan         String?           @map("email_perusahaan")
+  noHpPenanggungJawab     String?           @map("no_hp_penanggung_jawab")
+  statusWlkp              String?           @map("status_wlkp")
+  emailPenanggungJawab    String?           @map("email_penanggung_jawab")
+  nomorWlkp               String?           @map("nomor_wlkp")
+  createdAt               DateTime          @default(now()) @map("created_at")
+  updatedAt               DateTime          @updatedAt @map("updated_at")
+  user                    User              @relation(fields: [userId], references: [id])
+  jenisPengujian          JenisPengujian    @relation(fields: [jenisPengujianId], references: [id])
+  pengujianItems          PengujianItem[]
+  orders                  Order[]
+  worksheets              Worksheet[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([jenisPengujianId])
+  @@index([createdAt])
+  @@map("pengujian")
+}
+
+model PengujianItem {
+  id           Int        @id @default(autoincrement())
+  pengujianId  Int        @map("pengujian_id")
+  parameterId  Int        @map("parameter_id")
+  quantity     Int        @default(1)
+  price        Decimal    @db.Decimal(10, 2)
+  subtotal     Decimal    @db.Decimal(12, 2)
+  hasil        String?
+  keterangan   String?
+  pengujian    Pengujian  @relation(fields: [pengujianId], references: [id], onDelete: Cascade)
+  parameter    Parameter  @relation(fields: [parameterId], references: [id])
+
+  @@unique([pengujianId, parameterId])
+  @@index([pengujianId])
+  @@index([parameterId])
+  @@map("pengujian_items")
+}
+
+model Order {
+  id          Int         @id @default(autoincrement())
+  orderNumber String      @unique
+  userId      Int
+  pengujianId Int?        @map("pengujian_id")
+  status      OrderStatus @default(PENDING)
+  totalAmount Decimal     @db.Decimal(12, 2)
+  company     String?
+  companyLogo String?   @map("company_logo")
+  address     String?
+  contactPerson String?   @map("contact_person")
+  phone       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  notes       String?
+  penawaranFile         String?   @map("penawaran_file")
+  penawaranUserFile     String?   @map("penawaran_user_file")
+  suratPersetujuanFile  String?   @map("surat_persetujuan_file")
+  persetujuanStatus     String?   @map("persetujuan_status") @default("PENDING") // PENDING, APPROVED, REJECTED
+  persetujuanRejectionReason String? @map("persetujuan_rejection_reason")
+  invoiceFile           String?   @map("invoice_file")
+  invoiceNumber         String?   @map("invoice_number")
+  buktiBayarFile        String?   @map("bukti_bayar_file")
+  paymentStatus         String?   @map("payment_status") @default("UNPAID") // UNPAID, PENDING_VERIFICATION, PAID, REJECTED
+  paymentRejectionReason String?  @map("payment_rejection_reason")
+  orderItems  OrderItem[]
+  user        User        @relation(fields: [userId], references: [id])
+  pengujian   Pengujian?  @relation(fields: [pengujianId], references: [id])
+
+  @@index([userId])
+  @@index([pengujianId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([orderNumber])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          Int       @id @default(autoincrement())
+  orderId     Int
+  parameterId Int
+  quantity    Int       @default(1)
+  price       Decimal   @db.Decimal(10, 2)
+  subtotal    Decimal   @db.Decimal(12, 2)
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  parameter   Parameter @relation(fields: [parameterId], references: [id])
+
+  @@unique([orderId, parameterId])
+  @@index([orderId])
+  @@index([parameterId])
+  @@map("order_items")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PengujianStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PeralatanStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  DAMAGED
+}
+
+enum PegawaiStatus {
+  SIAP
+  SPT
+  STANDBY
+  CUTI
+}
+
+model Pegawai {
+  id        Int              @id @default(autoincrement())
+  nama      String           @unique
+  jabatan   String
+  status    PegawaiStatus    @default(SIAP)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([status])
+  @@index([nama])
+  @@map("pegawai")
+}
+
+model Worksheet {
+  id                    Int               @id @default(autoincrement())
+  nomorWorksheet        String            @unique @map("nomor_worksheet")
+  pengujianId           Int               @map("pengujian_id")
+  userId                Int               @map("user_id")
+  status                WorksheetStatus   @default(DRAFT)
+  tanggalMulai          DateTime?         @map("tanggal_mulai")
+  tanggalSelesai        DateTime?         @map("tanggal_selesai")
+  pegawaiUtama          Int?              @map("pegawai_utama")
+  pegawaiPendamping     Int?              @map("pegawai_pendamping")
+  hasil                 String?
+  catatan               String?
+  peralatanDigunakan    String?           @map("peralatan_digunakan")
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+  pengujian             Pengujian         @relation(fields: [pengujianId], references: [id], onDelete: Cascade)
+  user                  User              @relation("WorksheetUser", fields: [userId], references: [id])
+  worksheetItems        WorksheetItem[]
+
+  @@index([pengujianId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("worksheets")
+}
+
+model WorksheetItem {
+  id           Int       @id @default(autoincrement())
+  worksheetId  Int       @map("worksheet_id")
+  parameterId  Int       @map("parameter_id")
+  nilai        Decimal?  @db.Decimal(10, 3)
+  satuan       String?
+  keterangan   String?
+  isReady      Boolean?  @map("is_ready")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  worksheet    Worksheet @relation(fields: [worksheetId], references: [id], onDelete: Cascade)
+  parameter    Parameter @relation("WorksheetParameter", fields: [parameterId], references: [id])
+
+  @@unique([worksheetId, parameterId])
+  @@index([worksheetId])
+  @@index([parameterId])
+  @@map("worksheet_items")
+}
+
+enum WorksheetStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  APPROVED
+  REJECTED
+}
