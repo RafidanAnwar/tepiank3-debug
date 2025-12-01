@@ -124,7 +124,7 @@ export const NavBar = () => {
                             <div className="flex items-center space-x-2 cursor-pointer">
                                 {userProfile?.avatar && userProfile.avatar.startsWith('/uploads') ? (
                                     <img
-                                        src={`http://localhost:3001${userProfile.avatar}`}
+                                        src={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}${userProfile.avatar}`}
                                         alt="Profile"
                                         className="w-10 h-10 rounded-full object-cover"
                                         onError={(e) => {

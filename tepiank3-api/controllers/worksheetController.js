@@ -1,4 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
+const ExcelJS = require('exceljs');
+const path = require('path');
+const fs = require('fs');
 
 const prisma = new PrismaClient();
 
@@ -35,6 +38,11 @@ exports.getAllWorksheets = async (req, res) => {
                                 jenisPengujian: {
                                     include: {
                                         cluster: true
+                                    }
+                                },
+                                parameterPeralatans: {
+                                    include: {
+                                        peralatan: true
                                     }
                                 }
                             }
@@ -122,6 +130,11 @@ exports.getWorksheetById = async (req, res) => {
                                     include: {
                                         cluster: true
                                     }
+                                },
+                                parameterPeralatans: {
+                                    include: {
+                                        peralatan: true
+                                    }
                                 }
                             }
                         }
@@ -174,6 +187,15 @@ exports.createWorksheet = async (req, res) => {
         });
         const nomorWorksheet = `WS-${Date.now()}`;
 
+        // Get ALL pengujians for this order to include all items
+        const allPengujians = await prisma.pengujian.findMany({
+            where: { orderId: pengujian.orderId },
+            include: { pengujianItems: true }
+        });
+
+        // Flatten items from all pengujians
+        const allPengujianItems = allPengujians.flatMap(p => p.pengujianItems);
+
         // Create worksheet
         const worksheet = await prisma.worksheet.create({
             data: {
@@ -184,8 +206,10 @@ exports.createWorksheet = async (req, res) => {
                 pegawaiPendamping: pegawaiPendamping ? parseInt(pegawaiPendamping) : null,
                 status: 'DRAFT',
                 worksheetItems: {
-                    create: pengujian.pengujianItems.map(item => ({
+                    create: allPengujianItems.map(item => ({
                         parameterId: item.parameterId,
+                        location: item.location,
+                        quantity: item.quantity,
                         satuan: null,
                         nilai: null,
                         keterangan: ''
@@ -203,7 +227,22 @@ exports.createWorksheet = async (req, res) => {
                     }
                 },
                 worksheetItems: {
-                    include: { parameter: true }
+                    include: {
+                        parameter: {
+                            include: {
+                                jenisPengujian: {
+                                    include: {
+                                        cluster: true
+                                    }
+                                },
+                                parameterPeralatans: {
+                                    include: {
+                                        peralatan: true
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -225,7 +264,8 @@ exports.submitWorksheet = async (req, res) => {
             jumlahPersonel,
             catatan,
             bahanHabis,
-            peralatanDigunakan
+            peralatanDigunakan,
+            status // Allow status override
         } = req.body;
 
         if (!pengujianId) {
@@ -242,7 +282,7 @@ exports.submitWorksheet = async (req, res) => {
             userId: req.user.id,
             pegawaiUtama: pegawaiUtama ? parseInt(pegawaiUtama) : null,
             pegawaiPendamping: pegawaiPendamping ? parseInt(pegawaiPendamping) : null,
-            status: 'IN_PROGRESS', // Set status to IN_PROGRESS
+            status: status || 'IN_PROGRESS', // Use provided status or default to IN_PROGRESS
             catatan: catatan,
             peralatanDigunakan: peralatanDigunakan,
             // Store other fields in catatan or specific fields if schema allows. 
@@ -264,19 +304,28 @@ exports.submitWorksheet = async (req, res) => {
             // Create new
             const nomorWorksheet = `WS-${Date.now()}`;
 
-            // Get pengujian items for worksheet items
-            const pengujian = await prisma.pengujian.findUnique({
-                where: { id: parseInt(pengujianId) },
+            // Get pengujian to find orderId
+            const primaryPengujian = await prisma.pengujian.findUnique({
+                where: { id: parseInt(pengujianId) }
+            });
+
+            // Get ALL pengujians for this order
+            const allPengujians = await prisma.pengujian.findMany({
+                where: { orderId: primaryPengujian.orderId },
                 include: { pengujianItems: true }
             });
+
+            const allPengujianItems = allPengujians.flatMap(p => p.pengujianItems);
 
             worksheet = await prisma.worksheet.create({
                 data: {
                     ...worksheetData,
                     nomorWorksheet,
                     worksheetItems: {
-                        create: pengujian.pengujianItems.map(item => ({
+                        create: allPengujianItems.map(item => ({
                             parameterId: item.parameterId,
+                            location: item.location,
+                            quantity: item.quantity,
                             satuan: null,
                             nilai: null,
                             keterangan: ''
@@ -344,7 +393,22 @@ exports.updateWorksheet = async (req, res) => {
                     }
                 },
                 worksheetItems: {
-                    include: { parameter: true }
+                    include: {
+                        parameter: {
+                            include: {
+                                jenisPengujian: {
+                                    include: {
+                                        cluster: true
+                                    }
+                                },
+                                parameterPeralatans: {
+                                    include: {
+                                        peralatan: true
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -377,5 +441,324 @@ exports.deleteWorksheet = async (req, res) => {
         }
         console.error('Error deleting worksheet:', error);
         res.status(500).json({ error: 'Gagal menghapus worksheet' });
+    }
+};
+
+exports.exportWorksheet = async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log(`Exporting worksheet ${id}`);
+
+        const worksheet = await prisma.worksheet.findUnique({
+            where: { id: parseInt(id) },
+            include: {
+                pengujian: {
+                    include: {
+                        orders: true
+                    }
+                },
+                worksheetItems: {
+                    include: {
+                        parameter: {
+                            include: {
+                                jenisPengujian: {
+                                    include: {
+                                        cluster: true
+                                    }
+                                },
+                                parameterPeralatans: {
+                                    include: {
+                                        peralatan: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!worksheet) {
+            return res.status(404).json({ error: 'Worksheet not found' });
+        }
+
+        // Parse details from catatan
+        let jumlahHari = '-';
+        let jumlahPersonel = '-';
+        if (worksheet.catatan) {
+            const hariMatch = worksheet.catatan.match(/Jumlah Hari: (.*?)(\n|$)/);
+            if (hariMatch) jumlahHari = hariMatch[1].trim();
+
+            const personelMatch = worksheet.catatan.match(/Jumlah Personel: (.*?)(\n|$)/);
+            if (personelMatch) jumlahPersonel = personelMatch[1].trim();
+        }
+
+        // Get Company Details
+        const order = worksheet.pengujian.orders?.[0];
+        const companyName = order?.company || worksheet.pengujian.namaPerusahaan || '-';
+        const companyAddress = order?.address || worksheet.pengujian.alamatPerusahaan || '-';
+
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Worksheet');
+
+        // Set column widths manually
+        sheet.getColumn('A').width = 15; // Location
+        sheet.getColumn('B').width = 20; // Cluster
+        sheet.getColumn('C').width = 25; // Jenis Pengujian
+        sheet.getColumn('D').width = 30; // Parameter
+        sheet.getColumn('E').width = 10; // Jumlah Param
+        sheet.getColumn('F').width = 20; // Acuan
+        sheet.getColumn('G').width = 30; // Peralatan
+        sheet.getColumn('H').width = 10; // Jumlah Alat
+        sheet.getColumn('I').width = 30; // Catatan (Global)
+        sheet.getColumn('J').width = 30; // Bahan Habis (Global)
+        sheet.getColumn('K').width = 30; // Ketersediaan Alat (Global)
+
+        // --- Header Section ---
+        // Title
+        sheet.mergeCells('A1:K1'); // Merge across all columns
+        const titleCell = sheet.getCell('A1');
+        titleCell.value = 'WORKSHEET PENGUJIAN';
+        titleCell.font = { bold: true, size: 16 };
+        titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        // Logo Logic (Right Side: E2:I7)
+        let logoPath = 'd:\\project\\k3-debug\\tepiank3\\tepiank3-app\\public\\logo_parameter.png'; // Default logo
+
+        if (order?.companyLogo) {
+            const cleanLogoPath = order.companyLogo.startsWith('/') ? order.companyLogo.substring(1) : order.companyLogo;
+            const possiblePath1 = path.join(__dirname, '..', cleanLogoPath);
+            const possiblePath2 = path.join(__dirname, '..', 'uploads', cleanLogoPath);
+
+            if (fs.existsSync(possiblePath1)) {
+                logoPath = possiblePath1;
+            } else if (fs.existsSync(possiblePath2)) {
+                logoPath = possiblePath2;
+            }
+        }
+
+        try {
+            if (fs.existsSync(logoPath)) {
+                const logoId = workbook.addImage({
+                    filename: logoPath,
+                    extension: path.extname(logoPath).substring(1) || 'png',
+                });
+
+                // Merge cells for logo
+                // Positioned in Column A, Rows 2-4 (above Company Name)
+                sheet.mergeCells('A2:A4');
+                sheet.addImage(logoId, {
+                    tl: { col: 0, row: 1 }, // A2
+                    br: { col: 1, row: 4 }, // Bottom of A4 (Start of B5)
+                    editAs: 'oneCell'
+                });
+            }
+        } catch (err) {
+            console.error('Error adding logo:', err);
+        }
+
+        // Info Rows (Start at Row 5, below Logo)
+        let currentRow = 5;
+
+        const addInfoRow = (label, value) => {
+            sheet.getCell(`A${currentRow}`).value = label;
+            sheet.getCell(`A${currentRow}`).font = { bold: true };
+
+            // Merge B:K for full width value
+            sheet.mergeCells(`B${currentRow}:K${currentRow}`);
+
+            sheet.getCell(`B${currentRow}`).value = `: ${value}`;
+            sheet.getCell(`B${currentRow}`).alignment = { wrapText: true, vertical: 'top' };
+            currentRow++;
+        };
+
+        addInfoRow('Nama Perusahaan', companyName);
+        addInfoRow('Alamat', companyAddress);
+        addInfoRow('Kota/Kabupaten', worksheet.pengujian.kota || '-');
+        addInfoRow('Kecamatan', worksheet.pengujian.kecamatan || '-');
+        addInfoRow('Provinsi', worksheet.pengujian.provinsi || '-');
+        addInfoRow('No. Worksheet', worksheet.nomorWorksheet);
+        addInfoRow('Tanggal', new Date(worksheet.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }));
+        addInfoRow('Jumlah Hari', jumlahHari);
+        addInfoRow('Jumlah Personel', jumlahPersonel);
+
+        // currentRow = 8; // Removed to allow dynamic row positioning
+        currentRow++; // Add a gap row before table
+
+        // --- Table Header ---
+        const headerRowIndex = currentRow;
+        const headerRow = sheet.getRow(headerRowIndex);
+        headerRow.values = ['Lokasi', 'Cluster', 'Jenis Pengujian', 'Parameter', 'Jumlah', 'Acuan', 'Peralatan', 'Jumlah', 'Catatan', 'Bahan Habis', 'Ketersediaan Alat'];
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+        // Add background color to header
+        for (let i = 1; i <= 11; i++) {
+            const cell = headerRow.getCell(i);
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF4472C4' } // Blue header
+            };
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        }
+
+        currentRow++;
+
+        // --- Prepare Global Data ---
+        let bahanHabisText = '-';
+        let catatanText = '-';
+        let peralatanText = '-';
+
+        if (worksheet.catatan) {
+            const bahanMatch = worksheet.catatan.match(/Bahan Habis: (.*?)(\n|$)/);
+            if (bahanMatch) bahanHabisText = bahanMatch[1].trim();
+
+            const catatanMatch = worksheet.catatan.match(/Catatan: (.*?)(\n|$)/);
+            if (catatanMatch) catatanText = catatanMatch[1].trim();
+        }
+
+        if (worksheet.peralatanDigunakan) {
+            try {
+                const parsedAlat = JSON.parse(worksheet.peralatanDigunakan);
+                const list = Object.entries(parsedAlat).map(([name, isReady]) =>
+                    `- ${name}: ${isReady ? 'Tersedia' : 'Tidak Tersedia'}`
+                );
+                if (list.length > 0) peralatanText = list.join('\n');
+            } catch (e) {
+                console.error("Error parsing peralatanDigunakan for export", e);
+            }
+        }
+
+        // --- Table Data ---
+        // Group items
+        const items = worksheet.worksheetItems.map(item => ({
+            location: item.location || 'Unknown',
+            cluster: item.parameter?.jenisPengujian?.cluster?.name || 'Uncategorized',
+            jenis: item.parameter?.jenisPengujian?.name || 'Uncategorized',
+            parameter: item.parameter?.name,
+            qty_param: item.quantity || 1,
+            acuan: item.parameter?.acuan || '-',
+            peralatan: item.parameter?.parameterPeralatans?.map(p => p.peralatan?.name).join(', ') || '-',
+            qty_alat: item.parameter?.parameterPeralatans?.length > 0 ? (item.quantity || 1) : '-',
+            // Global columns will be merged later, but we set value for first row
+            catatan: catatanText,
+            bahanHabis: bahanHabisText,
+            ketersediaanAlat: peralatanText
+        }));
+
+        // Sort items
+        items.sort((a, b) => {
+            if (a.location !== b.location) return a.location.localeCompare(b.location);
+            if (a.cluster !== b.cluster) return a.cluster.localeCompare(b.cluster);
+            return a.jenis.localeCompare(b.jenis);
+        });
+
+        // Add rows
+        items.forEach(item => {
+            const row = sheet.getRow(currentRow);
+            row.values = [
+                item.location,
+                item.cluster,
+                item.jenis,
+                item.parameter,
+                item.qty_param,
+                item.acuan,
+                item.peralatan,
+                item.qty_alat,
+                item.catatan,
+                item.bahanHabis,
+                item.ketersediaanAlat
+            ];
+
+            // Add borders
+            row.eachCell({ includeEmpty: true }, (cell) => {
+                cell.border = {
+                    top: { style: 'thin' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    right: { style: 'thin' }
+                };
+                cell.alignment = { vertical: 'top', wrapText: true };
+            });
+
+            currentRow++;
+        });
+
+        // --- Merging Logic ---
+        // We need to merge based on the data rows, which start at headerRowIndex + 1
+        const dataStartRow = headerRowIndex + 1;
+        const dataEndRow = currentRow - 1;
+
+        let locStart = dataStartRow;
+        let clusterStart = dataStartRow;
+        let jenisStart = dataStartRow;
+
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const nextItem = items[i + 1];
+            const rowIndex = dataStartRow + i;
+
+            // Merge Location
+            if (!nextItem || nextItem.location !== item.location) {
+                if (rowIndex > locStart) {
+                    sheet.mergeCells(`A${locStart}:A${rowIndex}`);
+                }
+                sheet.getCell(`A${locStart}`).alignment = { vertical: 'top', horizontal: 'left' };
+                locStart = rowIndex + 1;
+            }
+
+            // Merge Cluster
+            if (!nextItem || nextItem.cluster !== item.cluster || nextItem.location !== item.location) {
+                if (rowIndex > clusterStart) {
+                    sheet.mergeCells(`B${clusterStart}:B${rowIndex}`);
+                }
+                sheet.getCell(`B${clusterStart}`).alignment = { vertical: 'top', horizontal: 'left' };
+                clusterStart = rowIndex + 1;
+            }
+
+            // Merge Jenis
+            if (!nextItem || nextItem.jenis !== item.jenis || nextItem.cluster !== item.cluster || nextItem.location !== item.location) {
+                if (rowIndex > jenisStart) {
+                    sheet.mergeCells(`C${jenisStart}:C${rowIndex}`);
+                }
+                sheet.getCell(`C${jenisStart}`).alignment = { vertical: 'top', horizontal: 'left' };
+                jenisStart = rowIndex + 1;
+            }
+
+            // Center align quantities
+            sheet.getCell(`E${rowIndex}`).alignment = { vertical: 'top', horizontal: 'center' };
+            sheet.getCell(`H${rowIndex}`).alignment = { vertical: 'top', horizontal: 'center' };
+        }
+
+        // Merge Global Columns (I, J, K) for the entire table height
+        if (dataEndRow >= dataStartRow) {
+            // Catatan
+            sheet.mergeCells(`I${dataStartRow}:I${dataEndRow}`);
+            sheet.getCell(`I${dataStartRow}`).alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+
+            // Bahan Habis
+            sheet.mergeCells(`J${dataStartRow}:J${dataEndRow}`);
+            sheet.getCell(`J${dataStartRow}`).alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+
+            // Ketersediaan Alat
+            sheet.mergeCells(`K${dataStartRow}:K${dataEndRow}`);
+            sheet.getCell(`K${dataStartRow}`).alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+        }
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=Worksheet-${worksheet.nomorWorksheet || id}.xlsx`);
+
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (error) {
+        console.error('Export worksheet error:', error);
+        res.status(500).json({ error: 'Failed to export worksheet' });
     }
 };

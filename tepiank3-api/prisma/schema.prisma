@@ -166,7 +166,9 @@ model Pengujian {
   user                    User              @relation(fields: [userId], references: [id])
   jenisPengujian          JenisPengujian    @relation(fields: [jenisPengujianId], references: [id])
   pengujianItems          PengujianItem[]
-  orders                  Order[]
+  orders                  Order[]           @relation("PengujianToOrder") // Old relation
+  orderId                 Int?              @map("order_id") // New relation
+  order                   Order?            @relation("OrderToPengujian", fields: [orderId], references: [id])
   worksheets              Worksheet[]
 
   @@index([userId])
@@ -185,10 +187,11 @@ model PengujianItem {
   subtotal     Decimal    @db.Decimal(12, 2)
   hasil        String?
   keterangan   String?
+  location     String?
   pengujian    Pengujian  @relation(fields: [pengujianId], references: [id], onDelete: Cascade)
   parameter    Parameter  @relation(fields: [parameterId], references: [id])
 
-  @@unique([pengujianId, parameterId])
+  @@unique([pengujianId, parameterId, location])
   @@index([pengujianId])
   @@index([parameterId])
   @@map("pengujian_items")
@@ -219,9 +222,11 @@ model Order {
   buktiBayarFile        String?   @map("bukti_bayar_file")
   paymentStatus         String?   @map("payment_status") @default("UNPAID") // UNPAID, PENDING_VERIFICATION, PAID, REJECTED
   paymentRejectionReason String?  @map("payment_rejection_reason")
+  suratTugasFile        String?   @map("surat_tugas_file")
   orderItems  OrderItem[]
   user        User        @relation(fields: [userId], references: [id])
-  pengujian   Pengujian?  @relation(fields: [pengujianId], references: [id])
+  pengujian   Pengujian?  @relation("PengujianToOrder", fields: [pengujianId], references: [id]) // Old relation
+  pengujians  Pengujian[] @relation("OrderToPengujian") // New relation
 
   @@index([userId])
   @@index([pengujianId])
@@ -238,10 +243,11 @@ model OrderItem {
   quantity    Int       @default(1)
   price       Decimal   @db.Decimal(10, 2)
   subtotal    Decimal   @db.Decimal(12, 2)
+  location    String?
   order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   parameter   Parameter @relation(fields: [parameterId], references: [id])
 
-  @@unique([orderId, parameterId])
+  @@unique([orderId, parameterId, location])
   @@index([orderId])
   @@index([parameterId])
   @@map("order_items")
@@ -325,16 +331,18 @@ model WorksheetItem {
   id           Int       @id @default(autoincrement())
   worksheetId  Int       @map("worksheet_id")
   parameterId  Int       @map("parameter_id")
+  quantity     Int       @default(1)
   nilai        Decimal?  @db.Decimal(10, 3)
   satuan       String?
   keterangan   String?
+  location     String?
   isReady      Boolean?  @map("is_ready")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   worksheet    Worksheet @relation(fields: [worksheetId], references: [id], onDelete: Cascade)
   parameter    Parameter @relation("WorksheetParameter", fields: [parameterId], references: [id])
 
-  @@unique([worksheetId, parameterId])
+  @@unique([worksheetId, parameterId, location])
   @@index([worksheetId])
   @@index([parameterId])
   @@map("worksheet_items")

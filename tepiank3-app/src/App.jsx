@@ -97,6 +97,12 @@ function AppRoutes() {
           <PengujianParameter />
         </ProtectedRoute>
       } />
+      {/* Alias route for reversed URL pattern */}
+      <Route path="/pengujian-parameter" element={
+        <ProtectedRoute>
+          <PengujianParameter />
+        </ProtectedRoute>
+      } />
       <Route path="/status-pengujian" element={
         <ProtectedRoute>
           <PengujianStatus />

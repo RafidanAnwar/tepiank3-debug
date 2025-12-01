@@ -10,11 +10,29 @@ export const CartProvider = ({ children }) => {
         return savedCart ? JSON.parse(savedCart) : [];
     });
 
+    const [isRevisionMode, setIsRevisionMode] = useState(false);
+
     useEffect(() => {
-        localStorage.setItem('cart', JSON.stringify(cartItems));
-    }, [cartItems]);
+        // Don't save cart to localStorage when in revision mode
+        if (!isRevisionMode) {
+            localStorage.setItem('cart', JSON.stringify(cartItems));
+        }
+    }, [cartItems, isRevisionMode]);
+
+    // Clear cart when entering revision mode
+    useEffect(() => {
+        if (isRevisionMode) {
+            setCartItems([]);
+        }
+    }, [isRevisionMode]);
 
     const addToCart = (item) => {
+        // Prevent adding to cart in revision mode
+        if (isRevisionMode) {
+            console.warn('Cannot add to cart in revision mode');
+            return;
+        }
+
         setCartItems((prevItems) => {
             const existingItem = prevItems.find((i) => i.id === item.id);
             if (existingItem) {
@@ -27,10 +45,12 @@ export const CartProvider = ({ children }) => {
     };
 
     const removeFromCart = (itemId) => {
+        if (isRevisionMode) return;
         setCartItems((prevItems) => prevItems.filter((item) => item.id !== itemId));
     };
 
     const updateQuantity = (itemId, quantity) => {
+        if (isRevisionMode) return;
         if (quantity < 1) {
             removeFromCart(itemId);
             return;
@@ -46,7 +66,7 @@ export const CartProvider = ({ children }) => {
         setCartItems([]);
     };
 
-    const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+    const cartCount = isRevisionMode ? 0 : cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
     return (
         <CartContext.Provider
@@ -57,6 +77,9 @@ export const CartProvider = ({ children }) => {
                 updateQuantity,
                 clearCart,
                 cartCount,
+                setCartItems,
+                isRevisionMode,
+                setIsRevisionMode,
             }}
         >
             {children}

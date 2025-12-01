@@ -46,16 +46,22 @@ Server akan berjalan di `http://localhost:3001`
 ### Authentication
 - `POST /api/auth/register` - Register user baru
 - `POST /api/auth/login` - Login user
+<<<<<<< HEAD
 - `POST /api/auth/forgot-password` - Request password reset
 - `POST /api/auth/reset-password` - Reset password
+=======
+>>>>>>> ed9176be0b72abd83b2f0ea05b612d1b912e37b9
 
 ### Users
 - `GET /api/users/profile` - Get user profile (authenticated)
 - `PUT /api/users/profile` - Update user profile (authenticated)
 - `GET /api/users` - Get all users (admin only)
 - `PUT /api/users/:id/role` - Update user role (admin only)
+<<<<<<< HEAD
 - `POST /api/users/avatar` - Upload user avatar
 - `PUT /api/users/last-login` - Update last login timestamp
+=======
+>>>>>>> ed9176be0b72abd83b2f0ea05b612d1b912e37b9
 
 ### Clusters
 - `GET /api/clusters` - Get all clusters
@@ -77,8 +83,11 @@ Server akan berjalan di `http://localhost:3001`
 - `POST /api/parameters` - Create parameter (admin only)
 - `PUT /api/parameters/:id` - Update parameter (admin only)
 - `DELETE /api/parameters/:id` - Delete parameter (admin only)
+<<<<<<< HEAD
 - `POST /api/parameters/bulk` - Bulk create parameters (admin only)
 - `PUT /api/parameters/bulk/prices` - Bulk update prices (admin only)
+=======
+>>>>>>> ed9176be0b72abd83b2f0ea05b612d1b912e37b9
 
 ### Peralatan
 - `GET /api/peralatan` - Get all peralatan
@@ -87,6 +96,7 @@ Server akan berjalan di `http://localhost:3001`
 - `PUT /api/peralatan/:id` - Update peralatan (admin only)
 - `DELETE /api/peralatan/:id` - Delete peralatan (admin only)
 
+<<<<<<< HEAD
 ### Pegawai
 - `GET /api/pegawai` - Get all pegawai
 - `GET /api/pegawai/:id` - Get pegawai by ID
@@ -126,6 +136,13 @@ Server akan berjalan di `http://localhost:3001`
 - `PUT /api/worksheet/:id` - Update worksheet
 - `PUT /api/worksheet/item/:id` - Update worksheet item
 - `DELETE /api/worksheet/:id` - Delete worksheet (admin only)
+=======
+### Orders
+- `GET /api/orders` - Get orders (user: own orders, admin: all orders)
+- `GET /api/orders/:id` - Get order by ID
+- `POST /api/orders` - Create new order (authenticated)
+- `PUT /api/orders/:id/status` - Update order status (admin only)
+>>>>>>> ed9176be0b72abd83b2f0ea05b612d1b912e37b9
 
 ## 🔐 Authentication
 
@@ -169,6 +186,7 @@ npm start
 
 ```
 tepiank3-api/
+<<<<<<< HEAD
 ├── controllers/       # Business logic
 │   ├── authController.js
 │   ├── userController.js
@@ -182,12 +200,19 @@ tepiank3-api/
 │   ├── dashboardController.js
 │   └── worksheetController.js
 ├── routes/            # Route definitions
+=======
+├── prisma/
+│   ├── schema.prisma
+│   └── seed.js
+├── routes/
+>>>>>>> ed9176be0b72abd83b2f0ea05b612d1b912e37b9
 │   ├── auth.js
 │   ├── users.js
 │   ├── clusters.js
 │   ├── jenisPengujian.js
 │   ├── parameters.js
 │   ├── peralatan.js
+<<<<<<< HEAD
 │   ├── pegawai.js
 │   ├── pengujian.js
 │   ├── orders.js
@@ -205,6 +230,13 @@ tepiank3-api/
 ├── .env
 ├── app.js             # Express app configuration
 ├── server.js          # Server entry point
+=======
+│   └── orders.js
+├── middleware/
+│   └── auth.js
+├── .env
+├── app.js
+>>>>>>> ed9176be0b72abd83b2f0ea05b612d1b912e37b9
 └── package.json
 ```
 

@@ -1,23 +1,111 @@
 import { useState, useRef, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Upload, Save, Edit } from 'lucide-react';
 import { NavBar } from '../../components/layout/NavBar';
 import { ContextApi } from '../../context/ContextApi';
+import api from '../../services/api';
 
 export default function Pengujian() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
   const [logoPreview, setLogoPreview] = useState(null);
   const profileMenuRef = useRef(null);
   const fileInputRef = useRef(null);
   const { user } = useContext(ContextApi);
+  const [isRevisionMode, setIsRevisionMode] = useState(false);
+  const [revisionOrderData, setRevisionOrderData] = useState(null);
 
   useEffect(() => {
     if (!user) {
       navigate('/login');
     }
   }, [user, navigate]);
+
+  // Auto-load from localStorage if available (for normal flow)
+  useEffect(() => {
+    const savedCompanyData = localStorage.getItem('companyData');
+    if (savedCompanyData) {
+      try {
+        const parsedData = JSON.parse(savedCompanyData);
+        setFormData({
+          namaPerusahaan: parsedData.namaPerusahaan || '',
+          jenisKegiatan: parsedData.jenisKegiatan || '',
+          alamatPerusahaan: parsedData.alamatPerusahaan || '',
+          jmlTenagaKerjaPria: parsedData.jmlTenagaKerjaPria || '',
+          jmlTenagaKerjaWanita: parsedData.jmlTenagaKerjaWanita || '',
+          provinsi: parsedData.provinsi || '',
+          kota: parsedData.kota || '',
+          fasilitasKesehatan: parsedData.fasilitasKesehatan || '',
+          kecamatan: parsedData.kecamatan || '',
+          kelurahan: parsedData.kelurahan || '',
+          namaPenanggungJawab: parsedData.namaPenanggungJawab || '',
+          emailPerusahaan: parsedData.emailPerusahaan || '',
+          noHpPenanggungJawab: parsedData.noHpPenanggungJawab || '',
+          statusWlkp: parsedData.statusWlkp || '',
+          emailPenanggungJawab: parsedData.emailPenanggungJawab || '',
+          nomorWlkp: parsedData.nomorWlkp || ''
+        });
+        if (parsedData.logo) {
+          setLogoPreview(parsedData.logo);
+        }
+      } catch (error) {
+        console.error('Error loading saved company data:', error);
+      }
+    }
+  }, []); // Run once on mount
+
+  // Check for revision mode and load order data (overrides localStorage)
+  useEffect(() => {
+    const loadRevisionData = async () => {
+      const { revisionOrder, isRevision } = location.state || {};
+
+      if (isRevision && revisionOrder) {
+        setIsRevisionMode(true);
+        setRevisionOrderData(revisionOrder);
+
+        try {
+          // Fetch full order details with pengujian data
+          const response = await api.get(`/orders/${revisionOrder.id}`);
+          const orderData = response.data;
+
+          // If order has pengujian data, pre-fill the form
+          if (orderData.pengujian) {
+            const pengujian = orderData.pengujian;
+            setFormData({
+              namaPerusahaan: pengujian.namaPerusahaan || '',
+              jenisKegiatan: pengujian.jenisKegiatan || '',
+              alamatPerusahaan: pengujian.alamatPerusahaan || '',
+              jmlTenagaKerjaPria: pengujian.jmlTenagaKerjaPria || '',
+              jmlTenagaKerjaWanita: pengujian.jmlTenagaKerjaWanita || '',
+              provinsi: pengujian.provinsi || '',
+              kota: pengujian.kota || '',
+              fasilitasKesehatan: pengujian.fasilitasKesehatan || '',
+              kecamatan: pengujian.kecamatan || '',
+              kelurahan: pengujian.kelurahan || '',
+              namaPenanggungJawab: pengujian.namaPenanggungJawab || '',
+              emailPerusahaan: pengujian.emailPerusahaan || '',
+              noHpPenanggungJawab: pengujian.noHpPenanggungJawab || '',
+              statusWlkp: pengujian.statusWlkp || '',
+              emailPenanggungJawab: pengujian.emailPenanggungJawab || '',
+              nomorWlkp: pengujian.nomorWlkp || ''
+            });
+
+            // Load logo if exists
+            if (pengujian.logo) {
+              setLogoPreview(pengujian.logo);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading revision data:', error);
+          alert('Gagal memuat data revisi. Silakan coba lagi.');
+        }
+      }
+    };
+
+    loadRevisionData();
+  }, [location.state]);
 
 
   const [formData, setFormData] = useState({
@@ -89,7 +177,17 @@ export default function Pengujian() {
 
       localStorage.setItem('companyData', JSON.stringify(companyData));
 
-      navigate('/parameter-pengujian');
+      // Navigate with revision state if in revision mode
+      if (isRevisionMode && revisionOrderData) {
+        navigate('/parameter-pengujian', {
+          state: {
+            revisionOrder: revisionOrderData,
+            isRevision: true
+          }
+        });
+      } else {
+        navigate('/parameter-pengujian');
+      }
     } catch (error) {
       console.error('Error saving company data:', error);
       alert('Gagal menyimpan data. Silakan coba lagi.');
@@ -108,7 +206,32 @@ export default function Pengujian() {
       <NavBar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">Pengajuan Layanan Pengujian</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-4 text-center">Pengajuan Layanan Pengujian</h1>
+
+        {/* Revision Mode Indicator */}
+        {isRevisionMode && revisionOrderData && (
+          <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Mode Revisi - Order #{revisionOrderData.orderNumber}
+                </h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p><strong>Catatan dari Admin:</strong></p>
+                  <p className="mt-1">{revisionOrderData.notes}</p>
+                </div>
+                <p className="mt-2 text-xs text-yellow-600">
+                  ✓ Data Anda sudah dimuat otomatis. Silakan lakukan perbaikan dan lanjutkan ke step berikutnya.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mb-8">
           <div className="flex items-center justify-center space-x-4">

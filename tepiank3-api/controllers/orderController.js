@@ -65,8 +65,39 @@ exports.getOrderById = async (req, res) => {
                                     }
                                 }
                             }
+                        }
+                    }
+                },
+                pengujians: {
+                    include: {
+                        jenisPengujian: {
+                            include: {
+                                cluster: true
+                            }
                         },
-                        worksheets: true
+                        pengujianItems: {
+                            include: {
+                                parameter: {
+                                    include: {
+                                        jenisPengujian: {
+                                            include: {
+                                                cluster: true
+                                            }
+                                        },
+                                        parameterPeralatans: {
+                                            include: {
+                                                peralatan: true
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                orderItems: {
+                    include: {
+                        parameter: true
                     }
                 }
             }
@@ -80,6 +111,70 @@ exports.getOrderById = async (req, res) => {
     } catch (error) {
         console.error('Get order error:', error);
         res.status(500).json({ error: 'Failed to fetch order' });
+    }
+};
+
+exports.updateOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { items, totalAmount, company, address, contactPerson, phone, companyLogo } = req.body;
+
+        // Verify ownership
+        const existingOrder = await prisma.order.findUnique({
+            where: { id: parseInt(id) }
+        });
+
+        if (!existingOrder) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        if (existingOrder.userId !== req.user.id && req.user.role !== 'ADMIN') {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+
+        // Transaction to update order and replace items
+        const updatedOrder = await prisma.$transaction(async (prisma) => {
+            // 1. Update Order Details
+            const order = await prisma.order.update({
+                where: { id: parseInt(id) },
+                data: {
+                    totalAmount,
+                    company,
+                    address,
+                    contactPerson,
+                    phone,
+                    companyLogo,
+                    status: 'PENDING', // Reset to PENDING after revision
+                    notes: null // Clear revision notes
+                }
+            });
+
+            // 2. Delete existing items
+            await prisma.orderItem.deleteMany({
+                where: { orderId: parseInt(id) }
+            });
+
+            // 3. Create new items
+            for (const item of items) {
+                await prisma.orderItem.create({
+                    data: {
+                        orderId: order.id,
+                        parameterId: item.parameterId,
+                        quantity: item.quantity,
+                        price: item.price,
+                        subtotal: item.subtotal,
+                        location: item.location
+                    }
+                });
+            }
+
+            return order;
+        });
+
+        res.json(updatedOrder);
+    } catch (error) {
+        console.error('Update order error:', error);
+        res.status(500).json({ error: 'Failed to update order' });
     }
 };
 
@@ -197,9 +292,26 @@ exports.uploadPersetujuan = async (req, res) => {
             fs.mkdirSync(uploadsDir, { recursive: true });
         }
 
-        const fileName = `persetujuan_${id}_${Date.now()}.pdf`;
+        // Detect file type from base64 prefix
+        let fileExtension = 'pdf';
+        let base64Data = file;
+
+        if (file.startsWith('data:application/pdf')) {
+            fileExtension = 'pdf';
+            base64Data = file.replace(/^data:application\/pdf;base64,/, '');
+        } else if (file.startsWith('data:image/jpeg') || file.startsWith('data:image/jpg')) {
+            fileExtension = 'jpg';
+            base64Data = file.replace(/^data:image\/jpe?g;base64,/, '');
+        } else if (file.startsWith('data:image/png')) {
+            fileExtension = 'png';
+            base64Data = file.replace(/^data:image\/png;base64,/, '');
+        } else {
+            // Fallback: try to remove any data URL prefix
+            base64Data = file.replace(/^data:.*?;base64,/, '');
+        }
+
+        const fileName = `persetujuan_${id}_${Date.now()}.${fileExtension}`;
         const filePath = path.join(uploadsDir, fileName);
-        const base64Data = file.replace(/^data:application\/pdf;base64,/, '');
 
         fs.writeFileSync(filePath, base64Data, 'base64');
 
@@ -216,6 +328,45 @@ exports.uploadPersetujuan = async (req, res) => {
     } catch (error) {
         console.error('Upload persetujuan error:', error);
         res.status(500).json({ error: 'Failed to upload surat persetujuan' });
+    }
+};
+
+exports.uploadSuratTugas = async (req, res) => {
+    try {
+        if (req.user.role !== 'ADMIN') {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        const { id } = req.params;
+        const { file } = req.body;
+
+        if (!file) {
+            return res.status(400).json({ error: 'File is required' });
+        }
+
+        const uploadsDir = path.join(__dirname, '../uploads/documents');
+
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const fileName = `surat_tugas_${id}_${Date.now()}.pdf`;
+        const filePath = path.join(uploadsDir, fileName);
+        const base64Data = file.replace(/^data:application\/pdf;base64,/, '');
+
+        fs.writeFileSync(filePath, base64Data, 'base64');
+
+        const order = await prisma.order.update({
+            where: { id: parseInt(id) },
+            data: {
+                suratTugasFile: `/uploads/documents/${fileName}`
+            }
+        });
+
+        res.json({ message: 'Surat Tugas uploaded successfully', order });
+    } catch (error) {
+        console.error('Upload Surat Tugas error:', error);
+        res.status(500).json({ error: 'Failed to upload Surat Tugas' });
     }
 };
 

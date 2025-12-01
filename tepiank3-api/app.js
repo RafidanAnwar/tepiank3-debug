@@ -24,7 +24,7 @@ const prisma = new PrismaClient();
 app.use(securityHeaders);
 app.use(apiRateLimit);
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: process.env.FRONTEND_URL === '*' ? true : (process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(url => url.trim()) : ['http://localhost:5173', 'http://localhost:3000']),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'X-Session-Id']
@@ -34,13 +34,16 @@ app.use(sanitizeInput);
 app.use(generateCSRFToken);
 
 // Serve static files for avatars
-app.use('/uploads', express.static('uploads', {
+const serveUploads = express.static('uploads', {
   setHeaders: (res, path) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET');
     res.header('Cross-Origin-Resource-Policy', 'cross-origin');
   }
-}));
+});
+
+app.use('/uploads', serveUploads);
+app.use('/api/uploads', serveUploads);
 
 // Routes
 app.use('/api/auth', authRoutes);

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, Bell, ChevronDown, UserCircle, LogOut, Check, Circle, Lock, CircleDot, Save, FileText, CreditCard } from 'lucide-react';
+import { Search, Bell, ChevronDown, ChevronUp, UserCircle, LogOut, Check, Circle, Lock, CircleDot, Save, FileText, CreditCard, Calendar, Building2, Wallet } from 'lucide-react';
 import { NavBar } from '../../components/layout/NavBar';
 import { safeLocalStorage } from '../../utils/errorHandler';
 import api from '../../services/api';
@@ -40,6 +40,8 @@ export default function PengujianStatus() {
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
   const profileMenuRef = useRef(null);
   const userName = localStorage.getItem('userName') || 'Musfiq';
 
@@ -49,6 +51,9 @@ export default function PengujianStatus() {
     function handleClickOutside(event) {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
         setShowProfileMenu(false);
+      }
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -136,15 +141,25 @@ export default function PengujianStatus() {
           // Check if invoice file exists - if yes, go directly to download step
           if (order.invoiceFile) {
             step = 8; // Unduh Invoice available
+
+            const downloadedInvoice = localStorage.getItem(`downloaded_invoice_${order.id}`);
+
+            // If invoice downloaded or payment started
+            if (downloadedInvoice || order.paymentStatus !== 'UNPAID') {
+              if (order.paymentStatus === 'PENDING_VERIFICATION') {
+                step = 9; // Verifikasi Pembayaran
+              } else if (order.paymentStatus === 'PAID') {
+                step = 10; // Selesai
+              } else if (order.paymentStatus === 'REJECTED') {
+                step = 9; // Stay at verification (user needs to re-upload)
+              }
+            }
           } else {
             step = 7; // Stay at persetujuan step (waiting for invoice)
           }
         } else {
           step = 7; // Stay at persetujuan step until approved
         }
-        break;
-      case 'PAID':
-        step = 8; // Still show invoice step, but maybe with completed status?
         break;
       case 'CANCELLED':
         step = 1;
@@ -156,108 +171,87 @@ export default function PengujianStatus() {
     setActiveStep(step);
   };
 
-  const handleOrderChange = (e) => {
-    const orderId = parseInt(e.target.value);
-    const order = orders.find(o => o.id === orderId);
-    if (order) {
-      setSelectedOrder(order);
-    }
-  };
-
-  const handleLogout = () => {
-    try {
-      safeLocalStorage.removeItem('isAuthenticated');
-      safeLocalStorage.removeItem('userName');
-      safeLocalStorage.removeItem('loggedUser');
-      safeLocalStorage.removeItem('userRole');
-      navigate('/login');
-    } catch (error) {
-      console.error('Error during logout:', error);
-      navigate('/login');
-    }
-  };
-
+  // Handler functions for document actions
   const handleUnduhPenawaran = () => {
-    try {
-      if (selectedOrder?.penawaranFile) {
-        const url = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}${selectedOrder.penawaranFile}`;
-        window.open(url, '_blank');
-
-        // Mark as downloaded and advance to next step
-        localStorage.setItem(`downloaded_penawaran_${selectedOrder.id}`, 'true');
-        updateProgress(selectedOrder);
-      } else {
-        alert("Penawaran belum tersedia");
-      }
-    } catch (error) {
-      console.error('Error downloading penawaran:', error);
-      alert('Gagal mengunduh penawaran. Silakan coba lagi.');
+    if (!selectedOrder?.penawaranFile) {
+      alert('File penawaran belum tersedia');
+      return;
     }
+    // Download penawaran file
+    const link = document.createElement('a');
+    link.href = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}${selectedOrder.penawaranFile}`;
+    link.download = `Penawaran_${selectedOrder.orderNumber}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Mark penawaran as downloaded
+    localStorage.setItem(`downloaded_penawaran_${selectedOrder.id}`, 'true');
+
+    // Trigger progress update to move to next step
+    setTimeout(() => {
+      if (selectedOrder) {
+        updateProgress(selectedOrder);
+      }
+    }, 500); // Small delay to ensure download starts
   };
 
-  const handleUnggahPersetujuan = async () => {
-    try {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.pdf';
-      input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+  const handleUnggahPersetujuan = () => {
+    // Create file input for upload
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.jpg,.jpeg,.png';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
 
-        if (file.type !== 'application/pdf') {
-          alert('Hanya file PDF yang diperbolehkan');
-          return;
-        }
+      try {
+        // Convert file to base64
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64File = reader.result;
 
-        try {
-          const reader = new FileReader();
-          reader.onloadend = async () => {
-            try {
-              const base64 = reader.result;
-              await api.post(`/orders/${selectedOrder.id}/upload-persetujuan`, { file: base64 });
-              alert('Surat persetujuan berhasil diupload');
-              fetchOrders(); // Refresh data
-            } catch (err) {
-              console.error('Error uploading persetujuan:', err);
-              alert('Gagal mengupload surat persetujuan');
-            }
-          };
-          reader.readAsDataURL(file);
-        } catch (err) {
-          console.error('Error reading file:', err);
-        }
-      };
-      input.click();
-    } catch (error) {
-      console.error('Error uploading persetujuan:', error);
-      alert('Gagal mengunggah persetujuan. Silakan coba lagi.');
-    }
+          try {
+            await api.post(`/orders/${selectedOrder.id}/upload-persetujuan`, {
+              file: base64File
+            });
+            alert('File persetujuan berhasil diunggah!');
+            fetchOrders(); // Reload orders
+          } catch (error) {
+            console.error('Error uploading persetujuan:', error);
+            alert('Gagal mengunggah file: ' + (error.response?.data?.error || error.message));
+          }
+        };
+
+        reader.onerror = () => {
+          alert('Gagal membaca file');
+        };
+
+        reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('Error reading file:', error);
+        alert('Gagal memproses file');
+      }
+    };
+    input.click();
   };
 
   const handleUnduhInvoice = () => {
-    try {
-      if (selectedOrder?.invoiceFile) {
-        const url = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}${selectedOrder.invoiceFile}`;
-        window.open(url, '_blank');
-
-        // Mark as downloaded and advance to next step
-        localStorage.setItem(`downloaded_invoice_${selectedOrder.id}`, 'true');
-        updateProgress(selectedOrder);
-      } else {
-        alert("Invoice belum tersedia");
-      }
-    } catch (error) {
-      console.error('Error downloading invoice:', error);
-      alert('Gagal mengunduh invoice. Silakan coba lagi.');
+    if (!selectedOrder?.invoiceFile) {
+      alert('File invoice belum tersedia');
+      return;
     }
-  };
+    // Download invoice file
+    const link = document.createElement('a');
+    link.href = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}${selectedOrder.invoiceFile}`;
+    link.download = `Invoice_${selectedOrder.orderNumber}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
-  const steps = [
-    { number: 1, title: 'Data Perusahaan/Instansi', subtitle: 'Isi dan lampirkan persyaratan Instansi' },
-    { number: 2, title: 'Parameter Pengujian', subtitle: 'Masukkan Lokasi & Parameter Pengujian' },
-    { number: 3, title: 'Status Pengajuan', subtitle: 'Pantau Perkembangan Pengajuan' },
-    { number: 4, title: 'Informasi Pembayaran', subtitle: 'Ringkasan Pengujian Layanan & Pembayaran' }
-  ];
+    // Mark invoice as downloaded in localStorage
+    localStorage.setItem(`downloaded_invoice_${selectedOrder.id}`, 'true');
+  };
 
   // Calculate progres based on activeStep
   const progres = useMemo(() => {
@@ -270,7 +264,8 @@ export default function PengujianStatus() {
       { id: 6, label: 'Unduh Penawaran' },
       { id: 7, label: 'Unggah Persetujuan' },
       { id: 8, label: 'Unduh Invoice' },
-      // Removed 'Informasi Pembayaran' from here
+      { id: 9, label: 'Verifikasi Pembayaran' },
+      { id: 10, label: 'Selesai' },
     ];
 
     return baseProgres.map(step => {
@@ -289,6 +284,14 @@ export default function PengujianStatus() {
       return { ...step, status };
     });
   }, [activeStep]);
+
+  // Define steps for the progress indicator
+  const steps = [
+    { number: 1, title: 'Data Perusahaan/Instansi', subtitle: 'Isi dan lampirkan persyaratan Instansi' },
+    { number: 2, title: 'Parameter Pengujian', subtitle: 'Masukkan Lokasi & Parameter Pengujian' },
+    { number: 3, title: 'Status Pengajuan', subtitle: 'Pantau Perkembangan Pengajuan' },
+    { number: 4, title: 'Informasi Pembayaran', subtitle: 'Ringkasan Pengujian Layanan & Pembayaran' }
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -328,30 +331,106 @@ export default function PengujianStatus() {
           </div>
         </div>
 
-        {/* Order Selection */}
-        <div className="mb-6 flex justify-center">
-          <div className="w-full max-w-md">
-            <label htmlFor="order-select" className="block text-sm font-medium text-gray-700 mb-2 text-center">
+        {/* Order Selection - Custom Dropdown */}
+        <div className="mb-8 flex justify-center">
+          <div className="w-full max-w-xl" ref={dropdownRef}>
+            <label className="block text-sm font-medium text-gray-700 mb-3 text-center">
               Pilih Nomor Order
             </label>
+
             <div className="relative">
-              <select
-                id="order-select"
-                value={selectedOrder?.id || ''}
-                onChange={handleOrderChange}
-                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm"
+              {/* Main Button */}
+              <button
+                type="button"
+                onClick={() => !loading && orders.length > 0 && setIsDropdownOpen(!isDropdownOpen)}
+                className={`relative w-full bg-white border rounded-xl shadow-sm pl-4 pr-10 py-3 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all duration-200 ${isDropdownOpen ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200 hover:border-blue-300'}`}
                 disabled={loading || orders.length === 0}
               >
-                {orders.map((order) => (
-                  <option key={order.id} value={order.id}>
-                    {order.orderNumber} - {new Date(order.createdAt).toLocaleDateString('id-ID')} ({order.status})
-                  </option>
-                ))}
-                {orders.length === 0 && <option>Tidak ada order</option>}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                <ChevronDown className="h-4 w-4" />
-              </div>
+                {selectedOrder ? (
+                  <div className="flex flex-col">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-gray-900 text-lg">{selectedOrder.orderNumber}</span>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
+                        ${selectedOrder.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                          selectedOrder.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
+                            selectedOrder.status === 'IN_PROGRESS' ? 'bg-indigo-100 text-indigo-800' :
+                              selectedOrder.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                                selectedOrder.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' :
+                                  selectedOrder.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                                    'bg-gray-100 text-gray-800'}`}>
+                        {selectedOrder.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="flex items-center text-sm text-gray-500 space-x-4">
+                      <div className="flex items-center">
+                        <Calendar className="w-4 h-4 mr-1.5 text-gray-400" />
+                        {new Date(selectedOrder.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </div>
+                      {selectedOrder.totalAmount && (
+                        <div className="flex items-center">
+                          <Wallet className="w-4 h-4 mr-1.5 text-gray-400" />
+                          Rp {parseInt(selectedOrder.totalAmount).toLocaleString('id-ID')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <span className="block truncate text-gray-500">{loading ? 'Memuat data...' : 'Tidak ada order'}</span>
+                )}
+                <span className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                  {isDropdownOpen ? (
+                    <ChevronUp className="h-5 w-5 text-blue-500" aria-hidden="true" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                  )}
+                </span>
+              </button>
+
+              {/* Dropdown List */}
+              {isDropdownOpen && (
+                <div className="absolute z-50 mt-2 w-full bg-white shadow-xl max-h-80 rounded-xl py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm custom-scrollbar">
+                  {orders.map((order) => (
+                    <div
+                      key={order.id}
+                      className={`cursor-pointer select-none relative py-3 pl-4 pr-4 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0 ${selectedOrder?.id === order.id ? 'bg-blue-50' : ''}`}
+                      onClick={() => {
+                        setSelectedOrder(order);
+                        setIsDropdownOpen(false);
+                      }}
+                    >
+                      <div className="flex flex-col">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`font-semibold ${selectedOrder?.id === order.id ? 'text-blue-700' : 'text-gray-900'}`}>
+                            {order.orderNumber}
+                          </span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize
+                            ${order.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                              order.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
+                                order.status === 'IN_PROGRESS' ? 'bg-indigo-100 text-indigo-800' :
+                                  order.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                                    order.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' :
+                                      order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                                        'bg-gray-100 text-gray-800'}`}>
+                            {order.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-500 space-x-4">
+                          <div className="flex items-center">
+                            <Calendar className="w-4 h-4 mr-1.5 text-gray-400" />
+                            {new Date(order.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          </div>
+                          {order.totalAmount && (
+                            <div className="flex items-center">
+                              <Wallet className="w-4 h-4 mr-1.5 text-gray-400" />
+                              Rp {parseInt(order.totalAmount).toLocaleString('id-ID')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -449,6 +528,6 @@ export default function PengujianStatus() {
 
         </div>
       </div>
-    </div>
+    </div >
   );
 }

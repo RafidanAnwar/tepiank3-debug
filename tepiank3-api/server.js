@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config(); // Restart trigger 4
 const app = require('./app');
 
 const PORT = process.env.PORT || 3001;

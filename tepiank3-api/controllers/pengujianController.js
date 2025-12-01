@@ -156,7 +156,6 @@ exports.createPengujian = async (req, res) => {
 
         // Calculate total amount
         let totalAmount = 0;
-        const pengujianItems = [];
         const orderItems = [];
 
         if (items && items.length > 0) {
@@ -172,46 +171,25 @@ exports.createPengujian = async (req, res) => {
                 const subtotal = parameter.harga * (item.quantity || 1);
                 totalAmount += subtotal;
 
-                pengujianItems.push({
-                    parameterId: item.parameterId,
-                    quantity: item.quantity || 1,
-                    price: parameter.harga,
-                    subtotal: subtotal
-                });
-
                 orderItems.push({
                     parameterId: item.parameterId,
                     quantity: item.quantity || 1,
                     price: parameter.harga,
-                    subtotal: subtotal
+                    subtotal: subtotal,
+                    location: item.location
                 });
+
+                // Enrich item with price for later splitting
+                item.price = parameter.harga;
             }
         }
 
-        // Create pengujian and order in transaction
         const result = await prisma.$transaction(async (tx) => {
-            // Create pengujian
-            const pengujian = await tx.pengujian.create({
-                data: {
-                    nomorPengujian: generateNomorPengujian(),
-                    userId: targetUserId,
-                    jenisPengujianId: parseInt(jenisPengujianId),
-                    totalAmount: totalAmount,
-                    tanggalPengujian: tanggalPengujian ? new Date(tanggalPengujian) : null,
-                    lokasi,
-                    catatan,
-                    pengujianItems: pengujianItems.length > 0 ? {
-                        create: pengujianItems
-                    } : undefined
-                }
-            });
-
-            // Create order
+            // 1. Create Order first
             const order = await tx.order.create({
                 data: {
                     orderNumber: `ORD-${Date.now()}`,
                     userId: targetUserId,
-                    pengujianId: pengujian.id,
                     totalAmount: totalAmount,
                     company,
                     companyLogo: companyLogoPath,
@@ -224,23 +202,95 @@ exports.createPengujian = async (req, res) => {
                 }
             });
 
-            return { pengujian, order };
+            // 2. Group items by jenisPengujianId
+            const itemsByJenis = {};
+            for (const item of items) {
+                const jId = item.jenisPengujianId || jenisPengujianId;
+
+                // Use jId if found, otherwise fallback to 'unknown'
+                const key = jId || 'unknown';
+                if (!itemsByJenis[key]) itemsByJenis[key] = [];
+                itemsByJenis[key].push(item);
+            }
+
+            const createdPengujians = [];
+
+            // 3. Create Pengujian for each type
+            for (const [jenisId, typeItems] of Object.entries(itemsByJenis)) {
+                if (jenisId === 'unknown') continue; // Skip if we can't identify type
+
+                // Calculate total for this pengujian
+                const typeTotal = typeItems.reduce((sum, item) => {
+                    const price = Number(item.price || 0);
+                    const qty = Number(item.quantity || 1);
+                    return sum + (price * qty);
+                }, 0);
+
+                // Create Pengujian Items payload
+                const typePengujianItems = typeItems.map(item => ({
+                    parameterId: parseInt(item.parameterId),
+                    quantity: parseInt(item.quantity),
+                    price: parseFloat(item.price),
+                    subtotal: parseFloat(item.price) * parseInt(item.quantity),
+                    location: item.location
+                }));
+
+                const pengujian = await tx.pengujian.create({
+                    data: {
+                        nomorPengujian: generateNomorPengujian(),
+                        userId: targetUserId,
+                        jenisPengujianId: parseInt(jenisId),
+                        totalAmount: typeTotal,
+                        tanggalPengujian: tanggalPengujian ? new Date(tanggalPengujian) : null,
+                        lokasi,
+                        kota: req.body.kota,
+                        kecamatan: req.body.kecamatan,
+                        provinsi: req.body.provinsi,
+                        catatan,
+                        orderId: order.id,
+                        pengujianItems: {
+                            create: typePengujianItems
+                        }
+                    }
+                });
+                createdPengujians.push(pengujian);
+            }
+
+            // Link first pengujian to order for backward compatibility
+            if (createdPengujians.length > 0) {
+                await tx.order.update({
+                    where: { id: order.id },
+                    data: { pengujianId: createdPengujians[0].id }
+                });
+            }
+
+            return { order, pengujians: createdPengujians };
         });
 
-        // Get complete data
-        const pengujian = await prisma.pengujian.findUnique({
-            where: { id: result.pengujian.id },
+        // Fetch complete data
+        const completeOrder = await prisma.order.findUnique({
+            where: { id: result.order.id },
             include: {
-                jenisPengujian: true,
-                pengujianItems: true,
-                orders: true
+                pengujians: {
+                    include: {
+                        jenisPengujian: true,
+                        pengujianItems: {
+                            include: { parameter: true }
+                        }
+                    }
+                },
+                orderItems: {
+                    include: { parameter: true }
+                }
             }
         });
 
         res.status(201).json({
-            pengujian,
-            order: result.order
+            message: 'Order created successfully',
+            order: completeOrder,
+            pengujians: completeOrder.pengujians
         });
+
     } catch (error) {
         console.error('Create pengujian error:', error);
         res.status(500).json({ error: 'Failed to create pengujian' });

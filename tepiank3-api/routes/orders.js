@@ -13,6 +13,9 @@ router.get('/admin/all-orders', authenticateToken, orderController.getAdminAllOr
 // Get order by ID
 router.get('/:id', authenticateToken, orderController.getOrderById);
 
+// Update order (User revision)
+router.put('/:id', authenticateToken, orderController.updateOrder);
+
 // Revise order (Admin request revision)
 router.post('/:id/revise', authenticateToken, orderController.reviseOrder);
 
@@ -45,5 +48,8 @@ router.post('/:id/verify-payment', authenticateToken, orderController.verifyPaym
 
 // Reject Payment (Admin only)
 router.post('/:id/reject-payment', authenticateToken, orderController.rejectPayment);
+
+// Upload Surat Tugas (Admin only)
+router.post('/:id/upload-surat-tugas', authenticateToken, orderController.uploadSuratTugas);
 
 module.exports = router;

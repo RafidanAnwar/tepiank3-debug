@@ -25,7 +25,7 @@ const HomeAdm = () => {
                 setLoading(true);
                 setError('');
                 const response = await api.get('/orders/admin/all-orders');
-                setPengajuanList(response.data || []);
+                setPengajuanList(Array.isArray(response.data) ? response.data : []);
             } catch (err) {
                 console.error('Error:', err);
                 setError('Gagal memuat data pengajuan');

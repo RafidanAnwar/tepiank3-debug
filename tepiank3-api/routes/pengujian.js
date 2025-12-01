@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticate: authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const pengujianController = require('../controllers/pengujianController');
 
 const router = express.Router();
@@ -7,25 +7,25 @@ const router = express.Router();
 // Get all pengujian for user
 router.get('/', authenticateToken, pengujianController.getAllPengujian);
 
-// Get all pengajuan (admin only) - MUST BE BEFORE /:id
-router.get('/admin/all-pengajuan', authenticateToken, pengujianController.getAdminAllPengajuan);
+// Get all pengajuan (Admin only)
+router.get('/admin/all-pengajuan', authenticateToken, requireAdmin, pengujianController.getAdminAllPengajuan);
 
-// Get users for admin (to select client)
-router.get('/admin/users', authenticateToken, pengujianController.getAdminUsers);
+// Get users for admin selection
+router.get('/admin/users', authenticateToken, requireAdmin, pengujianController.getAdminUsers);
 
 // Get pengujian by ID
 router.get('/:id', authenticateToken, pengujianController.getPengujianById);
 
-// Create new pengujian and order
+// Create new pengujian
 router.post('/', authenticateToken, pengujianController.createPengujian);
 
-// Update pengujian status
-router.patch('/:id/status', authenticateToken, pengujianController.updatePengujianStatus);
+// Update pengujian status (Admin only)
+router.patch('/:id/status', authenticateToken, requireAdmin, pengujianController.updatePengujianStatus);
 
-// Update pengujian results (admin only)
-router.patch('/:id/results', authenticateToken, pengujianController.updatePengujianResults);
+// Update pengujian results (Admin only)
+router.put('/:id/results', authenticateToken, requireAdmin, pengujianController.updatePengujianResults);
 
-// Delete pengujian
-router.delete('/:id', authenticateToken, pengujianController.deletePengujian);
+// Delete pengujian (Admin only)
+router.delete('/:id', authenticateToken, requireAdmin, pengujianController.deletePengujian);
 
 module.exports = router;

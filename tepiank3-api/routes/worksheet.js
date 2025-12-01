@@ -1,28 +1,31 @@
 const express = require('express');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const worksheetController = require('../controllers/worksheetController');
 
 const router = express.Router();
 
-// Get all worksheets (with pagination and filters)
-router.get('/', authenticate, worksheetController.getAllWorksheets);
+// Get all worksheets
+router.get('/', authenticateToken, worksheetController.getAllWorksheets);
 
-// Update worksheet item (nilai, satuan, keterangan) - HARUS SEBELUM GET /:id
-router.put('/item/:id', authenticate, worksheetController.updateWorksheetItem);
+// Export worksheet
+router.get('/:id/export', authenticateToken, worksheetController.exportWorksheet);
 
-// Get single worksheet
-router.get('/:id', authenticate, worksheetController.getWorksheetById);
+// Get worksheet by ID
+router.get('/:id', authenticateToken, worksheetController.getWorksheetById);
 
-// Create worksheet from pengujian
-router.post('/', authenticate, worksheetController.createWorksheet);
+// Create new worksheet (Admin only)
+router.post('/', authenticateToken, requireAdmin, worksheetController.createWorksheet);
 
-// Submit worksheet (Create/Update and set status to IN_PROGRESS)
-router.post('/submit', authenticate, worksheetController.submitWorksheet);
+// Submit worksheet (User/Admin)
+router.post('/submit', authenticateToken, worksheetController.submitWorksheet);
 
-// Update worksheet
-router.put('/:id', authenticate, worksheetController.updateWorksheet);
+// Update worksheet item
+router.put('/item/:id', authenticateToken, worksheetController.updateWorksheetItem);
 
-// Delete worksheet
-router.delete('/:id', authenticate, authorize(['ADMIN']), worksheetController.deleteWorksheet);
+// Update worksheet details
+router.put('/:id', authenticateToken, worksheetController.updateWorksheet);
+
+// Delete worksheet (Admin only)
+router.delete('/:id', authenticateToken, requireAdmin, worksheetController.deleteWorksheet);
 
 module.exports = router;

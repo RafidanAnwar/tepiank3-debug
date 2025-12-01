@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api`;
+let API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+
+// Prevent double /api prefix if it occurs
+if (API_BASE_URL.endsWith('/api/api')) {
+  API_BASE_URL = API_BASE_URL.replace(/\/api\/api$/, '/api');
+}
 
 // Create axios instance
 const api = axios.create({
@@ -32,7 +37,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     // Add CSRF token for non-GET requests
     if (config.method !== 'get') {
       if (!csrfToken) {
@@ -42,10 +47,10 @@ api.interceptors.request.use(
         config.headers['X-CSRF-Token'] = csrfToken;
       }
     }
-    
+
     // Add session ID for CSRF validation
     config.headers['X-Session-ID'] = sessionStorage.getItem('sessionId') || 'anonymous';
-    
+
     return config;
   },
   (error) => Promise.reject(error)

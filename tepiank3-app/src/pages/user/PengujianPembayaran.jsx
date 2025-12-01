@@ -26,11 +26,10 @@ export default function PengujianPembayaran() {
   const fetchOrderDetails = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/orders');
-      const foundOrder = response.data.find(o => o.id === orderId);
+      const response = await api.get(`/orders/${orderId}`);
 
-      if (foundOrder) {
-        setOrder(foundOrder);
+      if (response.data) {
+        setOrder(response.data);
       } else {
         alert('Order tidak ditemukan');
         navigate('/status-pengujian');
@@ -127,7 +126,7 @@ export default function PengujianPembayaran() {
           Kembali ke Status
         </button>
 
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div id="printable-card" className="bg-white rounded-2xl shadow-lg overflow-hidden">
           {/* Header Status */}
           <div className={`px-8 py-6 text-white flex justify-between items-center ${order.paymentStatus === 'PAID' ? 'bg-green-600' : 'bg-blue-600'}`}>
             <div>
@@ -160,30 +159,6 @@ export default function PengujianPembayaran() {
             {/* Payment Content */}
             {order.paymentStatus !== 'PAID' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                {/* Bank Info */}
-                <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
-                  <h3 className="text-lg font-semibold text-blue-900 mb-4">Rekening Tujuan</h3>
-                  <div className="space-y-3 text-blue-800">
-                    <div>
-                      <p className="text-sm opacity-70">Bank</p>
-                      <p className="font-bold text-lg">Bank BSI</p>
-                    </div>
-                    <div>
-                      <p className="text-sm opacity-70">Nomor Rekening</p>
-                      <p className="font-mono font-bold text-xl tracking-wider">7111111111</p>
-                    </div>
-                    <div>
-                      <p className="text-sm opacity-70">Atas Nama</p>
-                      <p className="font-medium">BPVP Samarinda</p>
-                    </div>
-                  </div>
-                  <div className="mt-6 pt-6 border-t border-blue-200">
-                    <p className="text-sm text-blue-700 mb-1">Total Tagihan</p>
-                    <p className="text-3xl font-bold text-blue-900">
-                      Rp {parseInt(order.totalAmount || 0).toLocaleString('id-ID')}
-                    </p>
-                  </div>
-                </div>
 
                 {/* Upload Form */}
                 <div className="space-y-6">
@@ -200,111 +175,139 @@ export default function PengujianPembayaran() {
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {order.paymentStatus === 'REJECTED' && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-                          <p className="font-bold flex items-center gap-2">
-                            <Circle className="w-4 h-4 fill-current" />
-                            Pembayaran Ditolak
-                          </p>
-                          <p className="text-sm mt-1">{order.paymentRejectionReason}</p>
-                          <p className="text-xs mt-2 font-medium">Silakan upload ulang bukti pembayaran yang benar.</p>
+                    <>
+                      <input
+                        type="file"
+                        id="bukti-bayar"
+                        accept="image/*,application/pdf"
+                        onChange={handleUploadBuktiBayar}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="bukti-bayar"
+                        className="cursor-pointer flex flex-col items-center"
+                      >
+                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4 text-blue-600">
+                          <FileText className="w-6 h-6" />
                         </div>
-                      )}
-
-                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors bg-gray-50">
-                        <input
-                          type="file"
-                          id="bukti-bayar"
-                          accept="image/*,application/pdf"
-                          onChange={handleUploadBuktiBayar}
-                          className="hidden"
-                        />
-                        <label
-                          htmlFor="bukti-bayar"
-                          className="cursor-pointer flex flex-col items-center"
-                        >
-                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4 text-blue-600">
-                            <FileText className="w-6 h-6" />
-                          </div>
-                          <span className="font-medium text-gray-700 mb-1">Klik untuk upload bukti bayar</span>
-                          <span className="text-sm text-gray-500">Format: JPG, PNG, PDF</span>
-                        </label>
-                      </div>
-                    </div>
+                        <span className="font-medium text-gray-700 mb-1">Klik untuk upload bukti bayar</span>
+                        <span className="text-sm text-gray-500">Format: JPG, PNG, PDF</span>
+                      </label>
+                    </>
                   )}
                 </div>
               </div>
             )}
+          </div>
+        </div>
 
-            {/* Order Summary (Always visible or only when paid? User asked for summary access AFTER payment verification. 
+        {/* Order Summary (Always visible or only when paid? User asked for summary access AFTER payment verification. 
                 But usually summary is good to see always. Let's keep it visible but maybe below payment form if not paid.) 
             */}
 
-            <div className="border-t border-gray-100 pt-8">
-              <h2 className="text-lg font-semibold text-gray-800 mb-6 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-600" />
-                Rincian Order
-              </h2>
+        <div className="border-t border-gray-100 pt-8">
+          <h2 className="text-lg font-semibold text-gray-800 mb-6 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-blue-600" />
+            Rincian Order
+          </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-3">Informasi Pemohon</h3>
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Perusahaan</span>
-                      <span className="font-medium">{order.companyName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">PIC</span>
-                      <span className="font-medium">{order.picName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Kontak</span>
-                      <span className="font-medium">{order.picPhone}</span>
-                    </div>
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-3">Informasi Pemohon</h3>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Perusahaan</span>
+                  <span className="font-medium">{order.company || order.pengujian?.namaPerusahaan || '-'}</span>
                 </div>
-
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-3">Status</h3>
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Status Order</span>
-                      <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                        {order.status}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Status Pembayaran</span>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${order.paymentStatus === 'PAID' ? 'bg-green-100 text-green-800' :
-                        order.paymentStatus === 'PENDING_VERIFICATION' ? 'bg-yellow-100 text-yellow-800' :
-                          order.paymentStatus === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                        }`}>
-                        {order.paymentStatus || 'UNPAID'}
-                      </span>
-                    </div>
-                  </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">PIC</span>
+                  <span className="font-medium">{order.contactPerson || order.pengujian?.namaPenanggungJawab || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Kontak</span>
+                  <span className="font-medium">{order.phone || order.pengujian?.noHpPenanggungJawab || '-'}</span>
                 </div>
               </div>
             </div>
 
-            {/* Actions */}
-            {order.paymentStatus === 'PAID' && (
-              <div className="flex justify-end gap-4 mt-8">
-                <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-2 px-6 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all"
-                >
-                  <Printer className="w-4 h-4" />
-                  Cetak Ringkasan
-                </button>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-3">Status</h3>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Status Order</span>
+                  <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                    {order.status}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Status Pembayaran</span>
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${order.paymentStatus === 'PAID' ? 'bg-green-100 text-green-800' :
+                    order.paymentStatus === 'PENDING_VERIFICATION' ? 'bg-yellow-100 text-yellow-800' :
+                      order.paymentStatus === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                    }`}>
+                    {order.paymentStatus || 'UNPAID'}
+                  </span>
+                </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
+
+        {/* Actions */}
+        {order.paymentStatus === 'PAID' && (
+          <div className="flex justify-end gap-4 mt-8 no-print">
+            {order.suratTugasFile && (
+              <a
+                href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}${order.suratTugasFile}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition-all shadow-lg shadow-purple-200"
+              >
+                <FileText className="w-4 h-4" />
+                Download Surat Tugas
+              </a>
+            )}
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-2 px-6 py-2.5 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all"
+            >
+              <Printer className="w-4 h-4" />
+              Cetak Ringkasan
+            </button>
+          </div>
+        )}
       </div>
+
+
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #printable-card, #printable-card * {
+            visibility: visible;
+          }
+          #printable-card {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+          /* Ensure background colors are printed */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
