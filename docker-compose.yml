@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: tepiank3-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: tepiank3
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - tepiank3-internal
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  api:
+    build: ./tepiank3-api
+    container_name: tepiank3-api
+    environment:
+      - DATABASE_URL=postgresql://postgres:root@db:5432/tepiank3
+      - JWT_SECRET=balai-k3-samarinda-tepian
+      - JWT_EXPIRES_IN=7d
+      - PORT=3001
+      - FRONTEND_URL=*
+      - NODE_ENV=production
+    volumes:
+      - ./tepiank3-api/uploads:/app/uploads
+    networks:
+      - tepiank3-internal
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+
+  app:
+    build: ./tepiank3-app
+    container_name: tepiank3-app
+    ports:
+      - "80:80"
+    networks:
+      - tepiank3-internal
+    depends_on:
+      - api
+    restart: always
+
+networks:
+  tepiank3-internal:
+    driver: bridge
+
+volumes:
+  postgres_data:
