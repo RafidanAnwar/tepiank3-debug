@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Navbar from '../../components/layout/NavBar.jsx';
-import { MessageSquare, Eye, ArrowLeft, ArrowRight, Loader } from "lucide-react";
+import { Eye, ArrowLeft, ArrowRight, Loader } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../components/layout/SideBar.jsx";
 import api from "../../services/api.js";
@@ -163,9 +163,7 @@ const HomeAdm = () => {
                 </main>
             </div>
 
-            <button className="fixed bottom-6 right-6 bg-blue-500 text-white p-4 rounded-full shadow-lg hover:bg-blue-600">
-                <MessageSquare className="w-6 h-6" />
-            </button>
+
         </div>
     );
 };

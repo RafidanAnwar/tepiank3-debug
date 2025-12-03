@@ -39,12 +39,12 @@ const ParameterPage = () => {
     const [editField, setEditField] = useState(null);
     const [editValue, setEditValue] = useState('');
     const [isAddingNew, setIsAddingNew] = useState(false);
-    const [newData, setNewData] = useState({ 
-        name: '', 
-        satuan: '', 
-        acuan: '', 
-        harga: '', 
-        jenisPengujianId: '' 
+    const [newData, setNewData] = useState({
+        name: '',
+        satuan: '',
+        acuan: '',
+        harga: '',
+        jenisPengujianId: ''
     });
 
     const isAdmin = user?.role === 'ADMIN';
@@ -108,12 +108,12 @@ const ParameterPage = () => {
     // ======== Search, Filter & Pagination ========
     const filteredParameters = parameters.filter(param => {
         const matchesSearch = param.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (param.satuan && param.satuan.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                            (param.acuan && param.acuan.toLowerCase().includes(searchTerm.toLowerCase()));
-        
+            (param.satuan && param.satuan.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (param.acuan && param.acuan.toLowerCase().includes(searchTerm.toLowerCase()));
+
         const matchesCluster = !selectedCluster || param.jenisPengujian?.clusterId === parseInt(selectedCluster);
         const matchesJenisPengujian = !selectedJenisPengujian || param.jenisPengujianId === parseInt(selectedJenisPengujian);
-        
+
         return matchesSearch && matchesCluster && matchesJenisPengujian;
     });
 
@@ -126,7 +126,7 @@ const ParameterPage = () => {
     }, [searchTerm, selectedCluster, selectedJenisPengujian]);
 
     // Filter jenis pengujian based on selected cluster
-    const filteredJenisPengujian = selectedCluster 
+    const filteredJenisPengujian = selectedCluster
         ? jenisPengujian.filter(jp => jp.clusterId === parseInt(selectedCluster))
         : jenisPengujian;
 
@@ -172,7 +172,7 @@ const ParameterPage = () => {
             }
 
             const updated = await parameterService.updateParameter(paramId, payload);
-            setParameters(prev => prev.map(item => 
+            setParameters(prev => prev.map(item =>
                 item.id === paramId ? { ...item, ...updated } : item
             ));
             setEditingId(null);
@@ -226,7 +226,7 @@ const ParameterPage = () => {
     const handleDelete = async (id, name) => {
         if (!isAdmin) return;
         if (!window.confirm(`Yakin hapus "${name}"?`)) return;
-        
+
         try {
             await parameterService.deleteParameter(id);
             setParameters(prev => prev.filter(item => item.id !== id));
@@ -239,11 +239,24 @@ const ParameterPage = () => {
 
     // ===== Peralatan inline editor handlers =====
     // Inline editor open
+    // Inline editor open
     const openInlinePeralatanEditor = async (param) => {
-        if (peralatanList.length === 0) await loadPeralatan();
+        let currentPeralatanList = peralatanList;
+
+        if (currentPeralatanList.length === 0) {
+            try {
+                const data = await peralatanService.getAllPeralatan();
+                currentPeralatanList = Array.isArray(data) ? data : [];
+                setPeralatanList(currentPeralatanList);
+            } catch (err) {
+                console.error('Failed to load peralatan:', err);
+                return;
+            }
+        }
+
         const selMap = {};
         (param.parameterPeralatans || []).forEach(pp => { selMap[pp.peralatanId] = pp.quantity; });
-        const list = peralatanList.map(p => ({
+        const list = currentPeralatanList.map(p => ({
             peralatanId: p.id,
             quantity: selMap[p.id] || 1,
             peralatan: p,
@@ -284,29 +297,29 @@ const ParameterPage = () => {
     return (
         <div className="min-h-screen bg-gray-50">
             <header className="bg-white shadow-sm sticky top-0 z-40">
-                <Navbar/>
+                <Navbar />
             </header>
 
             <div className="flex">
                 <aside className="bg-gradient-to-tr from-blue-200 to-blue-600 w-25 shadow-lg p-2 min-h-screen flex flex-col justify-between">
-                    <Sidebar/>
+                    <Sidebar />
                 </aside>
 
                 <main className="max-w-7xl mx-auto flex-1 p-6">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-xl font-bold text-blue-600 flex items-center space-x-2">
-                            <FlaskConical className="w-8 h-8"/>
+                            <FlaskConical className="w-8 h-8" />
                             <span>Daftar Parameter</span>
                         </h2>
-                        
+
                         <button
                             onClick={loadParameters}
                             disabled={loading}
                             className="p-2 text-gray-600 hover:text-blue-600 disabled:opacity-50">
-                            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`}/>
+                            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                         </button>
                     </div>
-                    
+
                     <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -318,7 +331,7 @@ const ParameterPage = () => {
                                 className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
-                        
+
                         <div className="relative">
                             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                             <select
@@ -337,7 +350,7 @@ const ParameterPage = () => {
                                 ))}
                             </select>
                         </div>
-                        
+
                         <div className="relative">
                             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                             <select
@@ -361,7 +374,7 @@ const ParameterPage = () => {
                             <p className="mt-2 text-gray-600">Memuat data...</p>
                         </div>
                     )}
-                    
+
                     {error && (
                         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                             {error}
@@ -403,14 +416,14 @@ const ParameterPage = () => {
                                                                 autoFocus
                                                             />
                                                             <button
-                                                                    onClick={() => handleSaveEdit(param.id)}
-                                                                    className="text-green-600 hover:text-green-800 shrink-0">
-                                                                <Check className="w-4 h-4"/>
+                                                                onClick={() => handleSaveEdit(param.id)}
+                                                                className="text-green-600 hover:text-green-800 shrink-0">
+                                                                <Check className="w-4 h-4" />
                                                             </button>
                                                             <button
-                                                                    onClick={handleCancelEdit}
-                                                                    className="text-red-600 hover:text-red-800 shrink-0">
-                                                                <X className="w-4 h-4"/>
+                                                                onClick={handleCancelEdit}
+                                                                className="text-red-600 hover:text-red-800 shrink-0">
+                                                                <X className="w-4 h-4" />
                                                             </button>
                                                         </div>
                                                     ) : (
@@ -429,14 +442,14 @@ const ParameterPage = () => {
                                                                 autoFocus
                                                             />
                                                             <button
-                                                                    onClick={() => handleSaveEdit(param.id)}
-                                                                    className="text-green-600 hover:text-green-800 shrink-0">
-                                                                <Check className="w-4 h-4"/>
+                                                                onClick={() => handleSaveEdit(param.id)}
+                                                                className="text-green-600 hover:text-green-800 shrink-0">
+                                                                <Check className="w-4 h-4" />
                                                             </button>
                                                             <button
-                                                                    onClick={handleCancelEdit}
-                                                                    className="text-red-600 hover:text-red-800 shrink-0">
-                                                                <X className="w-4 h-4"/>
+                                                                onClick={handleCancelEdit}
+                                                                className="text-red-600 hover:text-red-800 shrink-0">
+                                                                <X className="w-4 h-4" />
                                                             </button>
                                                         </div>
                                                     ) : (
@@ -499,12 +512,12 @@ const ParameterPage = () => {
                                                             <button
                                                                 onClick={() => handleSaveEdit(param.id)}
                                                                 className="text-green-600 hover:text-green-800 flex-shrink-0">
-                                                                <Check className="w-4 h-4"/>
+                                                                <Check className="w-4 h-4" />
                                                             </button>
                                                             <button
                                                                 onClick={handleCancelEdit}
                                                                 className="text-red-600 hover:text-red-800 flex-shrink-0">
-                                                                <X className="w-4 h-4"/>
+                                                                <X className="w-4 h-4" />
                                                             </button>
                                                         </div>
                                                     ) : (
@@ -532,12 +545,12 @@ const ParameterPage = () => {
                                                             <button
                                                                 onClick={() => handleSaveEdit(param.id)}
                                                                 className="text-green-600 hover:text-green-800 flex-shrink-0">
-                                                                <Check className="w-4 h-4"/>
+                                                                <Check className="w-4 h-4" />
                                                             </button>
                                                             <button
                                                                 onClick={handleCancelEdit}
                                                                 className="text-red-600 hover:text-red-800 flex-shrink-0">
-                                                                <X className="w-4 h-4"/>
+                                                                <X className="w-4 h-4" />
                                                             </button>
                                                         </div>
                                                     ) : (
@@ -563,12 +576,12 @@ const ParameterPage = () => {
                                                             <button
                                                                 onClick={() => handleSaveEdit(param.id)}
                                                                 className="text-green-600 hover:text-green-800 flex-shrink-0">
-                                                                <Check className="w-4 h-4"/>
+                                                                <Check className="w-4 h-4" />
                                                             </button>
                                                             <button
                                                                 onClick={handleCancelEdit}
                                                                 className="text-red-600 hover:text-red-800 flex-shrink-0">
-                                                                <X className="w-4 h-4"/>
+                                                                <X className="w-4 h-4" />
                                                             </button>
                                                         </div>
                                                     ) : (
@@ -583,7 +596,7 @@ const ParameterPage = () => {
                                                             <button
                                                                 onClick={() => handleDelete(param.id, param.name)}
                                                                 className="text-red-600 hover:text-red-800 p-1">
-                                                                <Trash2 className="w-4 h-4"/>
+                                                                <Trash2 className="w-4 h-4" />
                                                             </button>
                                                         )}
                                                     </div>
@@ -605,7 +618,7 @@ const ParameterPage = () => {
                                                     <input
                                                         type="text"
                                                         value={newData.name}
-                                                        onChange={(e) => setNewData({...newData, name: e.target.value})}
+                                                        onChange={(e) => setNewData({ ...newData, name: e.target.value })}
                                                         placeholder="Nama parameter"
                                                         className="w-full px-2 py-1 border border-blue-500 rounded"
                                                         autoFocus
@@ -615,7 +628,7 @@ const ParameterPage = () => {
                                                     <input
                                                         type="text"
                                                         value={newData.satuan}
-                                                        onChange={(e) => setNewData({...newData, satuan: e.target.value})}
+                                                        onChange={(e) => setNewData({ ...newData, satuan: e.target.value })}
                                                         placeholder="Satuan"
                                                         className="w-full px-2 py-1 border border-blue-500 rounded"
                                                     />
@@ -624,7 +637,7 @@ const ParameterPage = () => {
                                                     <input
                                                         type="text"
                                                         value={newData.acuan}
-                                                        onChange={(e) => setNewData({...newData, acuan: e.target.value})}
+                                                        onChange={(e) => setNewData({ ...newData, acuan: e.target.value })}
                                                         placeholder="Acuan"
                                                         className="w-full px-2 py-1 border border-blue-500 rounded"
                                                     />
@@ -634,7 +647,7 @@ const ParameterPage = () => {
                                                         type="number"
                                                         step="0.01"
                                                         value={newData.harga}
-                                                        onChange={(e) => setNewData({...newData, harga: e.target.value})}
+                                                        onChange={(e) => setNewData({ ...newData, harga: e.target.value })}
                                                         placeholder="Harga"
                                                         className="w-full px-2 py-1 border border-blue-500 rounded text-right"
                                                     />
@@ -642,7 +655,7 @@ const ParameterPage = () => {
                                                 <td className="px-3 py-2">
                                                     <select
                                                         value={newData.jenisPengujianId}
-                                                        onChange={(e) => setNewData({...newData, jenisPengujianId: e.target.value})}
+                                                        onChange={(e) => setNewData({ ...newData, jenisPengujianId: e.target.value })}
                                                         className="w-full px-2 py-1 border border-blue-500 rounded"
                                                     >
                                                         <option value="">Pilih Jenis Pengujian</option>
@@ -657,7 +670,7 @@ const ParameterPage = () => {
                                                     <button
                                                         onClick={handleAddNew}
                                                         className="text-green-600 hover:text-green-800 p-1">
-                                                        <Check className="w-4 h-4"/>
+                                                        <Check className="w-4 h-4" />
                                                     </button>
                                                     <button
                                                         onClick={() => {
@@ -665,7 +678,7 @@ const ParameterPage = () => {
                                                             setNewData({ name: '', satuan: '', acuan: '', harga: '', jenisPengujianId: '' });
                                                         }}
                                                         className="text-red-600 hover:text-red-800 p-1">
-                                                        <X className="w-4 h-4"/>
+                                                        <X className="w-4 h-4" />
                                                     </button>
                                                 </td>
                                             </tr>
@@ -679,7 +692,7 @@ const ParameterPage = () => {
                                     <button
                                         onClick={() => setIsAddingNew(true)}
                                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                                        <Plus className="w-4 h-4"/>
+                                        <Plus className="w-4 h-4" />
                                     </button>
                                 </div>
                             )}
@@ -689,16 +702,15 @@ const ParameterPage = () => {
                                     onClick={() => setPage(p => Math.max(p - 1, 1))}
                                     disabled={page === 1}
                                     className="px-4 py-2 flex items-center gap-1 rounded-md text-gray-700 hover:text-blue-500 disabled:opacity-50">
-                                    <ArrowLeft className="w-4 h-4"/>Sebelumnya
+                                    <ArrowLeft className="w-4 h-4" />Sebelumnya
                                 </button>
 
                                 <div className="flex items-center space-x-1">
-                                    {Array.from({length: totalPages}).map((_, i) => (
+                                    {Array.from({ length: totalPages }).map((_, i) => (
                                         <button
                                             key={i}
                                             onClick={() => setPage(i + 1)}
-                                            className={`w-8 h-8 rounded-md text-sm font-medium ${
-                                            page === i + 1 ? "bg-blue-500 text-white" : "bg-gray-100 hover:bg-gray-200"}`}>
+                                            className={`w-8 h-8 rounded-md text-sm font-medium ${page === i + 1 ? "bg-blue-500 text-white" : "bg-gray-100 hover:bg-gray-200"}`}>
                                             {i + 1}
                                         </button>
                                     ))}
@@ -708,7 +720,7 @@ const ParameterPage = () => {
                                     onClick={() => setPage(p => Math.min(p + 1, totalPages))}
                                     disabled={page === totalPages}
                                     className="px-4 py-2 flex items-center gap-1 rounded-md text-gray-700 hover:text-blue-500 disabled:opacity-50">
-                                    <ArrowRight className="w-4 h-4"/>Selanjutnya
+                                    <ArrowRight className="w-4 h-4" />Selanjutnya
                                 </button>
                             </div>
                         </div>

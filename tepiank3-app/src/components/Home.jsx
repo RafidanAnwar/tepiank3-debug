@@ -7,7 +7,7 @@ import { ContextApi } from '../Context/ContextApi';
 export default function HomePage() {
   const navigate = useNavigate();
   const [openFaq, setOpenFaq] = useState(0);
-  const { user, setUser} = useContext(ContextApi);
+  const { user, setUser } = useContext(ContextApi);
   // const [showUserMenu, setShowUserMenu] = useState(false);
   // const [user, setUser] = useState(null);
 
@@ -54,7 +54,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <NavBar/>
+      <NavBar />
 
       {/* Hero Section */}
       <div className="relative overflow-hidden flex justify-center">

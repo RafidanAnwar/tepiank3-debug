@@ -1,10 +1,3 @@
-//saya memiliki project (react+vite, tailwind+vite)
-//bantu saya membuat fungsi handlesubmit dari file Register.jsx:
-//fungsi simpan data register ke file /src/dataDummy/tb_User.js
-//isi tb_User.js : const tbUser = []
-
-
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
@@ -148,16 +141,16 @@ function Register() {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Minimal 8 karakter</p>
+              {/* <p className="text-xs text-gray-500 mt-1">Minimal 8 karakter</p> */}
             </div>
 
             {/* Terms */}
-            <div className="flex items-start">
+            {/* <div className="flex items-start">
               <input type="checkbox" required className="w-4 h-4 mt-1 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
               <label className="ml-2 text-sm text-gray-600">
                 Saya setuju dengan <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">Syarat & Ketentuan</a> dan <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">Kebijakan Privasi</a>
               </label>
-            </div>
+            </div> */}
 
             {/* Submit Button */}
             <button

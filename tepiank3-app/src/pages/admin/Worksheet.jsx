@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { FileText, ChevronDown, ChevronUp, Edit2, Save, X, MessageSquare } from 'lucide-react';
+import { FileText, ChevronDown, ChevronUp, Edit2, Save, X } from 'lucide-react';
 import Navbar from '../../components/layout/NavBar';
 import Sidebar from '../../components/layout/SideBar';
 import { worksheetService } from '../../services/worksheetService';
@@ -92,7 +92,7 @@ const WorksheetPage = () => {
       </header>
 
       <div className="flex">
-        <aside className="bg-linear-to-tr from-blue-200 to-blue-600 w-25 shadow-lg p-2 min-h-screen flex flex-col justify-between">
+        <aside className="w-64 h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto bg-gradient-to-tr from-blue-200 to-blue-600 shadow-lg p-2 flex flex-col justify-between">
           <Sidebar />
         </aside>
 
@@ -383,9 +383,7 @@ const WorksheetPage = () => {
       </div>
 
       {/* Chat Button */}
-      <button className="fixed bottom-6 right-6 bg-blue-500 text-white p-4 rounded-full shadow-lg hover:bg-blue-600">
-        <MessageSquare className="w-6 h-6" />
-      </button>
+
     </div>
   );
 };

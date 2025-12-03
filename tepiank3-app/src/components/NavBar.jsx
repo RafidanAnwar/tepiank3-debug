@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, Bell, ChevronDown, UserCircle, LogOut, LayoutDashboard } from 'lucide-react';
+import { ChevronDown, UserCircle, LogOut, LayoutDashboard } from 'lucide-react';
 import { ContextApi } from '../Context/ContextApi';
 import { authService } from '../services/authService';
 import { userService } from '../services/userService';
@@ -26,7 +26,7 @@ export const NavBar = () => {
                 console.error('Error fetching profile:', error);
             }
         };
-        
+
         if (user) {
             fetchProfile();
         }
@@ -87,18 +87,6 @@ export const NavBar = () => {
 
                     {/* Search & User */}
                     <div className="flex items-center space-x-4">
-                        <div className="relative hidden lg:block">
-                            <input
-                                type="text"
-                                placeholder="Search here.."
-                                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-                            />
-                            <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
-                        </div>
-                        <button className="relative p-2 hover:bg-gray-100 rounded-full cursor-pointer">
-                            <Bell className="w-5 h-5 text-gray-600" />
-                        </button>
-
                         <div
                             ref={menuRef}
                             className="relative"
@@ -107,9 +95,9 @@ export const NavBar = () => {
                         >
                             <div className="flex items-center space-x-2 cursor-pointer">
                                 {userProfile?.avatar && userProfile.avatar.startsWith('/uploads') ? (
-                                    <img 
-                                        src={`http://localhost:3001${userProfile.avatar}`} 
-                                        alt="Profile" 
+                                    <img
+                                        src={`http://localhost:3001${userProfile.avatar}`}
+                                        alt="Profile"
                                         className="w-10 h-10 rounded-full object-cover"
                                         onError={(e) => {
                                             e.target.style.display = 'none';
@@ -157,6 +145,6 @@ export const NavBar = () => {
                     </div>
                 </div>
             </div>
-        </header>
+        </header >
     )
 }

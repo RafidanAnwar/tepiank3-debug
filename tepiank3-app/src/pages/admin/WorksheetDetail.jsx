@@ -4,7 +4,7 @@ import Navbar from '../../components/layout/NavBar';
 import SideBar from '../../components/layout/SideBar';
 import api from '../../services/api';
 import { worksheetService } from '../../services/worksheetService';
-import { Check, Save, MessageSquare, ArrowLeft, Edit2, X, Phone, Mail, MapPin, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, Save, ArrowLeft, Edit2, X, Phone, Mail, MapPin, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const WorksheetDetail = () => {
     const { id } = useParams();
@@ -189,7 +189,7 @@ const WorksheetDetail = () => {
                 if (clickedItem) {
                     const matchingWsItem = newWorksheet.worksheetItems.find(wsItem =>
                         wsItem.parameterId === clickedItem.parameterId &&
-                        wsItem.location === clickedItem.location
+                        (wsItem.location || 'Unknown') === clickedItem.location
                     );
                     if (matchingWsItem) {
                         targetItemId = matchingWsItem.id;
@@ -465,17 +465,17 @@ const WorksheetDetail = () => {
     if (!order) return <div className="p-8 text-center">Order not found</div>;
 
     return (
-        <div className="flex h-screen bg-gray-50 font-sans">
-            {/* Admin Sidebar */}
-            <SideBar />
+        <div className="min-h-screen bg-gray-50 font-sans">
+            <header className="bg-white shadow-sm sticky top-0 z-40">
+                <Navbar />
+            </header>
 
-            {/* Main Content Wrapper */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-                <header className="bg-white shadow-sm z-40">
-                    <Navbar />
-                </header>
+            <div className="flex">
+                <aside className="w-64 h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto bg-gradient-to-tr from-blue-200 to-blue-600 shadow-lg p-2 flex flex-col justify-between">
+                    <SideBar />
+                </aside>
 
-                <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 md:p-6">
+                <main className="flex-1 bg-gray-50 p-4 md:p-6">
                     <div className="flex flex-col lg:flex-row max-w-[1600px] mx-auto gap-6">
                         {/* Left Sidebar - Company Info */}
                         <aside className="w-full lg:w-80 flex-shrink-0 space-y-6">

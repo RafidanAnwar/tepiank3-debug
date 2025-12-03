@@ -238,11 +238,24 @@ const ParameterPage = () => {
 
     // ===== Peralatan inline editor handlers =====
     // Inline editor open
+    // Inline editor open
     const openInlinePeralatanEditor = async (param) => {
-        if (peralatanList.length === 0) await loadPeralatan();
+        let currentPeralatanList = peralatanList;
+
+        if (currentPeralatanList.length === 0) {
+            try {
+                const data = await peralatanService.getAllPeralatan();
+                currentPeralatanList = Array.isArray(data) ? data : [];
+                setPeralatanList(currentPeralatanList);
+            } catch (err) {
+                console.error('Failed to load peralatan:', err);
+                return;
+            }
+        }
+
         const selMap = {};
         (param.parameterPeralatans || []).forEach(pp => { selMap[pp.peralatanId] = pp.quantity; });
-        const list = peralatanList.map(p => ({
+        const list = currentPeralatanList.map(p => ({
             peralatanId: p.id,
             quantity: selMap[p.id] || 1,
             peralatan: p,

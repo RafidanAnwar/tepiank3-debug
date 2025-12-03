@@ -39,16 +39,16 @@ function Login() {
       }
 
       const { user } = await authService.login(formData.email, formData.password);
-      
+
       // Update context dengan user data
       login(user);
-      
+
       // Get redirect path from location state or default based on role
       const from = location.state?.from?.pathname || (user.role === 'ADMIN' ? '/HomeAdm' : '/home');
-      
+
       // Redirect to intended page
       navigate(from, { replace: true });
-      
+
       // Optional: Show welcome message
       setTimeout(() => {
         alert(`Selamat datang, ${user.firstname}!`);
@@ -136,7 +136,7 @@ function Login() {
                 <input type="checkbox" className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
                 <span className="ml-2 text-gray-600">Ingat saya</span>
               </label>
-              <button 
+              <button
                 type="button"
                 onClick={() => navigate('/forgot-password')}
                 className="text-blue-600 hover:text-blue-700 font-medium"
